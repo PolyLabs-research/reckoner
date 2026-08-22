@@ -1,0 +1,38 @@
+{
+  "expected": [
+    "iterations.jsonl",
+    "value_switch.jsonl",
+    "LATEST",
+    "instruments.jsonl",
+    "campaign_summary.json",
+    "checkpoint_watch.json",
+    "state-19.json",
+    "ring-19",
+    "ckpt-0.pt",
+    "ckpt-19.pt",
+    "snap-19.pt",
+    "ladder/no_regress/pass-0004/pair_scores.jsonl",
+    "ladder/no_regress/pass-0004/PASS-DONE",
+    "ladder/primary/pass-0004/pair_scores.jsonl",
+    "ladder/primary/pass-0004/PASS-DONE",
+    "ladder/no_regress/pass-0009/pair_scores.jsonl",
+    "ladder/no_regress/pass-0009/PASS-DONE",
+    "ladder/primary/pass-0009/pair_scores.jsonl",
+    "ladder/primary/pass-0009/PASS-DONE",
+    "ladder/no_regress/pass-0014/pair_scores.jsonl",
+    "ladder/no_regress/pass-0014/PASS-DONE",
+    "ladder/primary/pass-0014/pair_scores.jsonl",
+    "ladder/primary/pass-0014/PASS-DONE",
+    "ladder/no_regress/pass-0019/pair_scores.jsonl",
+    "ladder/no_regress/pass-0019/PASS-DONE",
+    "ladder/primary/pass-0019/pair_scores.jsonl",
+    "ladder/primary/pass-0019/PASS-DONE"
+  ],
+  "missing": [],
+  "declared_absent": {
+    "ckpt-1..18.pt": "intermediate checkpoints; ckpt-0 (the tripwire comparand) and ckpt-19 (the endpoint M2 warm-starts from) are retained",
+    "snap-0..18.pt": "intermediate pool snapshots; snap-19 retained",
+    "ring-17, ring-18": "superseded by ring-19, which carries the full accumulated ring",
+    "state-17, state-18": "superseded by state-19"
+  }
+}

@@ -2428,9 +2428,27 @@ miss is a suite problem at `sims = 1`; it is not in the primary's population and
 could not appear in its table. Nothing regressed on either instrument — one
 problem moved on one of them.
 
-**Consequence for M2**, registered before M2 designs itself around the +0.18: the
-campaign made the model **faster at par**, not materially more capable. Those
-license different next rounds, and the pooled number alone cannot tell them apart.
+**Consequence for M2**, registered before M2 designs itself around the +0.18.
+
+**The measured +108 is entirely amortization.** But "not more capable" would claim
+a null this instrument cannot return: **beat-par scores `steps < par`, so a
+problem the anchor cannot solve and the campaign solves AT par scores exactly what
+a shared failure scores — zero.** The metric is **capability-blind by
+construction.**
+
+So the honest statement is: the gain is amortization, and **the campaign's effect
+on capability is UNMEASURED — with three positive instances.** The three that
+resisted 4× budget are real new solves that the primary discarded.
+
+### This is the M2 design consequence, ahead of the top-1 saturation note
+
+Stratum 7 — 8 shorter against 18 longer, on the only stratum where par sits at the
+BFS floor — says the interesting failure is in capability. **If M2's lever targets
+capability, P1 as registered will report a flat number however well it works.**
+
+M2 needs a **solve-rate criterion beside beat-par, on a population that includes
+unsolved problems**, or it spends a round measuring the wrong thing with a clean
+conscience. The three-of-six replay is the seed of that population.
 
 ---
 

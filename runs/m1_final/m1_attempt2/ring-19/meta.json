@@ -1,0 +1,16 @@
+{
+  "bytes_per_record": 1558,
+  "capacity": 500000,
+  "count": 25343,
+  "cursor": 25343,
+  "gumbel_m": 16,
+  "max_sites": 192,
+  "par_sources": [
+    "unverified",
+    "bfs",
+    "scripted",
+    "pool"
+  ],
+  "ring_format": 1,
+  "seq_len": 512
+}

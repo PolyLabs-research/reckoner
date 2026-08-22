@@ -77,6 +77,17 @@ runs/**
 # directly. They also carry an ANCHORS entry, because a load-bearing artifact whose
 # integrity is checked on one host is checked nowhere.
 !runs/part0d_paired/**
+# THE CLASS, not the directory. `!runs/part0d_paired/**` covered one directory
+# because that was the instance in front of me; the campaign's own per-problem
+# rows live at `ladder/<leg>/pass-NNNN/pair_scores.jsonl` and were silently
+# ignored. The contract named `ladder_pairscores.jsonl`, which nothing has ever
+# written, so the negation guarded a path no run produces while the real one fell
+# through. A pattern is still a pattern, so `test_emitted_records_are_trackable`
+# asserts the property over the paths the code ACTUALLY emits.
+!runs/**/pair_scores.jsonl
+!runs/**/instruments.jsonl
+!runs/**/checkpoint_watch.json
+!runs/**/manifest.json
 # The test count, WRITTEN BY THE RUN rather than typed into a commit message.
 # F-16's rule ("compose the message after the run") broke one commit after it was
 # written, because message and run are convenient to send together and a rule that
