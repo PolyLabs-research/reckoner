@@ -115,3 +115,15 @@ driver invoked at golden config.
 
 Two items in that list are new capability rather than promotion — §3.1 — and one
 DONE-WHEN needs the reading in §3.2 before it can be met as written.
+
+---
+
+## Comparands
+
+- `BRIEF-chunk11-driver.md` — §0a, the composition this log inventories against
+- `runs/shakedown_result.json` — the chunk-9 kill-point harness's record
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

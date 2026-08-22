@@ -278,3 +278,19 @@ Does **not** change the selected `f`; selection stays mechanical. The number goe
 on M1-A4's page regardless. If movement at the selected `f` is near zero, that
 may change **whether M1 launches as specified** — a separate ruling, made on the
 number, **never folded into the band**.
+
+---
+
+## Comparands
+
+- `runs/m1_final/sweep_rehearsal_frac.json` — the arms
+- `runs/m1_final/sweep_verify.json` — the verification
+- `runs/gate10b_trajectory.json` — the sensitivity table in §3
+- `runs/phase1/phase1_result.json` — the anchor's frozen 0.9699
+- `runs/pod_artifacts/m1_rehearsal/ckpt-4.pt` — the `ckpt-4` of §3's Δ row
+- **GONE:** attempt 1's `ckpt-0` — §4's control target
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

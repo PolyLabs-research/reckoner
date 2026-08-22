@@ -158,3 +158,22 @@ descriptive table catching up with reality needs no amendment.
 - `make lint test` green; `golden` green.
 
 Three failed attempts at any gate → BLOCKED, never a weakened gate.
+
+---
+
+## Comparands
+
+- `runs/pod_artifacts/m1_rehearsal/ckpt-4.pt` — §2b's equivalence-gate subject,
+  the checkpoint 910 / 722 / 108 and 22-50-36 must reproduce on
+- `runs/pod_artifacts/equivalence_gate/` — the gate's own output
+- `runs/part0d_paired/` — §2's "Part-0d still needs its deterministic re-run":
+  the baseline arm whose `101/600` and per-stratum counts are the verification
+- `runs/config_census.json` — §3's live-config gate, the class report
+- `runs/ring0_replay/replay.json` — the DONE-WHEN halt gate: 398/400, 99
+  pool-par, 1,305 ring rows. **GONE, and never committed** (F-45): the numbers
+  survive on this page; the record that produced them does not.
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

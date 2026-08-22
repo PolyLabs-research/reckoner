@@ -136,3 +136,16 @@ might not hold:
 > tripwire (×3 layers), descent identity, null/absence rules, pinned bins,
 > `Absent.__bool__`, `write_record` trackedness — see `logschema`, `replay`,
 > `runner`, `dataset`.
+
+---
+
+## Comparands
+
+- `runs/shakedown_result.json` — the shakedown's record
+- `runs/<name>/iterations.jsonl`, `runs/<name>/value_switch.jsonl` — the record
+  shapes the kill-point harness asserts against (patterns, not instances)
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

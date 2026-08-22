@@ -235,3 +235,18 @@ The floors did the job they were frozen for.
   classes clearing `MIN_CLASS_SUPPORT = 100`; the phrase and the behaviour
   disagree. The rarest class runs 1, 6, 7, 12, 17 against a floor of 100, so on
   this trajectory the head never goes live inside 20 iterations.
+
+---
+
+## Comparands
+
+- `instruments.jsonl`
+- `iterations.jsonl`
+- `runs/m1_rehearsal_recovered/`
+- `state-4.json`
+- `value_switch.jsonl`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

@@ -499,3 +499,19 @@ pairs it always read as though it covered.
 `tests/test_sweep_selection.py` — including a test on the key itself, so a future
 refactor that reintroduces float arithmetic fails at the key rather than inside a
 selection nobody re-derives.
+
+---
+
+## Comparands
+
+- `runs/chunk11_ceiling.json`
+- `runs/chunk11_part0b_sweep.json`
+- `runs/phase1/phase1.pt`
+- `runs/suites`
+- `runs/suites/solve_in_7.jsonl`
+- `solve_in_10.jsonl`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

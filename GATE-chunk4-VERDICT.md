@@ -97,3 +97,18 @@ to mean the document under review, and `docs/derivations.md`'s digest was given
 instead. Had the artifact been correctly identified as missing, the report was
 required to say so — absence carries a reason applies to ordered report items,
 not only to schema fields.
+
+---
+
+## Comparands
+
+- `docs/derivations.md` — **the artifact under gate**, pinned at
+  `b2b6c932a7236c8299a24dec72d08fc787d791a34ed83f0caaa38219540a22e0`
+
+*A `.md` artifact under a sha256 pin: cited with its digest on the page and
+invisible to a path-extractor keyed to `runs/` and data extensions (F-44).*
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

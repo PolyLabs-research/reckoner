@@ -1,0 +1,460 @@
+{
+  "alarms": {},
+  "anchor": "/workspace/reckoner/runs/phase1/phase1.pt",
+  "committed": 19,
+  "config_fingerprint": "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d",
+  "git_sha": "f48fe1f9c0d67a73e6baacd26850d2248f046a70",
+  "instruments": [
+    {
+      "config_fingerprint": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+      "iteration": 4,
+      "no_regress_pair_scores": "runs/m1_attempt2/ladder/no_regress/pass-0004/pair_scores.jsonl",
+      "no_regress_sims_1": {
+        "at_par": 1176,
+        "floor": 1167,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1167,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "no_regress_sims_48": {
+        "at_par": 1193,
+        "floor": 1188,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1188,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "pair_scores": "runs/m1_attempt2/ladder/primary/pass-0004/pair_scores.jsonl",
+      "primary": {
+        "anchor_baseline": "101/600",
+        "delta_vs_anchor": 0.135,
+        "per_stratum": {
+          "scripted_in_10": {
+            "beat": 70,
+            "of": 200
+          },
+          "scripted_in_7": {
+            "beat": 28,
+            "of": 200
+          },
+          "scripted_in_8": {
+            "beat": 84,
+            "of": 200
+          }
+        },
+        "pooled_beat_par": "182/600",
+        "pooled_rate": 0.303333
+      },
+      "profile": "eval",
+      "watchlist": {
+        "anchor_reference": {
+          "1": [
+            24,
+            0
+          ],
+          "48": [
+            7,
+            0
+          ]
+        },
+        "by_budget": {
+          "1": {
+            "family_remaining": 24,
+            "novel_misses": 0,
+            "pass_misses": 24
+          },
+          "48": {
+            "family_remaining": 7,
+            "novel_misses": 0,
+            "pass_misses": 7
+          }
+        },
+        "frozen_family_size": 24
+      }
+    },
+    {
+      "config_fingerprint": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+      "iteration": 9,
+      "no_regress_pair_scores": "runs/m1_attempt2/ladder/no_regress/pass-0009/pair_scores.jsonl",
+      "no_regress_sims_1": {
+        "at_par": 1176,
+        "floor": 1167,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1167,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "no_regress_sims_48": {
+        "at_par": 1193,
+        "floor": 1188,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1188,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "pair_scores": "runs/m1_attempt2/ladder/primary/pass-0009/pair_scores.jsonl",
+      "primary": {
+        "anchor_baseline": "101/600",
+        "delta_vs_anchor": 0.163333,
+        "per_stratum": {
+          "scripted_in_10": {
+            "beat": 83,
+            "of": 200
+          },
+          "scripted_in_7": {
+            "beat": 30,
+            "of": 200
+          },
+          "scripted_in_8": {
+            "beat": 86,
+            "of": 200
+          }
+        },
+        "pooled_beat_par": "199/600",
+        "pooled_rate": 0.331667
+      },
+      "profile": "eval",
+      "watchlist": {
+        "anchor_reference": {
+          "1": [
+            24,
+            0
+          ],
+          "48": [
+            7,
+            0
+          ]
+        },
+        "by_budget": {
+          "1": {
+            "family_remaining": 24,
+            "novel_misses": 0,
+            "pass_misses": 24
+          },
+          "48": {
+            "family_remaining": 7,
+            "novel_misses": 0,
+            "pass_misses": 7
+          }
+        },
+        "frozen_family_size": 24
+      }
+    },
+    {
+      "config_fingerprint": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+      "iteration": 14,
+      "no_regress_pair_scores": "runs/m1_attempt2/ladder/no_regress/pass-0014/pair_scores.jsonl",
+      "no_regress_sims_1": {
+        "at_par": 1176,
+        "floor": 1167,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1167,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "no_regress_sims_48": {
+        "at_par": 1193,
+        "floor": 1188,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1188,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "pair_scores": "runs/m1_attempt2/ladder/primary/pass-0014/pair_scores.jsonl",
+      "primary": {
+        "anchor_baseline": "101/600",
+        "delta_vs_anchor": 0.163333,
+        "per_stratum": {
+          "scripted_in_10": {
+            "beat": 87,
+            "of": 200
+          },
+          "scripted_in_7": {
+            "beat": 30,
+            "of": 200
+          },
+          "scripted_in_8": {
+            "beat": 82,
+            "of": 200
+          }
+        },
+        "pooled_beat_par": "199/600",
+        "pooled_rate": 0.331667
+      },
+      "profile": "eval",
+      "watchlist": {
+        "anchor_reference": {
+          "1": [
+            24,
+            0
+          ],
+          "48": [
+            7,
+            0
+          ]
+        },
+        "by_budget": {
+          "1": {
+            "family_remaining": 24,
+            "novel_misses": 0,
+            "pass_misses": 24
+          },
+          "48": {
+            "family_remaining": 7,
+            "novel_misses": 0,
+            "pass_misses": 7
+          }
+        },
+        "frozen_family_size": 24
+      }
+    },
+    {
+      "config_fingerprint": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+      "iteration": 19,
+      "no_regress_pair_scores": "runs/m1_attempt2/ladder/no_regress/pass-0019/pair_scores.jsonl",
+      "no_regress_sims_1": {
+        "at_par": 1175,
+        "floor": 1167,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1167,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "no_regress_sims_48": {
+        "at_par": 1193,
+        "floor": 1188,
+        "floor_kind": "indistinguishability",
+        "floor_recomputed": 1188,
+        "held": true,
+        "licensed_sentence": "not below the anchor's own one-sided 95% band",
+        "of": 1200
+      },
+      "pair_scores": "runs/m1_attempt2/ladder/primary/pass-0019/pair_scores.jsonl",
+      "primary": {
+        "anchor_baseline": "101/600",
+        "delta_vs_anchor": 0.18,
+        "per_stratum": {
+          "scripted_in_10": {
+            "beat": 89,
+            "of": 200
+          },
+          "scripted_in_7": {
+            "beat": 35,
+            "of": 200
+          },
+          "scripted_in_8": {
+            "beat": 85,
+            "of": 200
+          }
+        },
+        "pooled_beat_par": "209/600",
+        "pooled_rate": 0.348333
+      },
+      "profile": "eval",
+      "watchlist": {
+        "anchor_reference": {
+          "1": [
+            24,
+            0
+          ],
+          "48": [
+            7,
+            0
+          ]
+        },
+        "by_budget": {
+          "1": {
+            "family_remaining": 24,
+            "novel_misses": 1,
+            "pass_misses": 25
+          },
+          "48": {
+            "family_remaining": 7,
+            "novel_misses": 0,
+            "pass_misses": 7
+          }
+        },
+        "frozen_family_size": 24
+      }
+    }
+  ],
+  "iterations": [
+    {
+      "iteration": 0,
+      "pool_par": 99,
+      "ring": 1305,
+      "seconds": 955.7,
+      "solved": "398/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 1,
+      "pool_par": 76,
+      "ring": 2545,
+      "seconds": 891.8,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 2,
+      "pool_par": 72,
+      "ring": 3831,
+      "seconds": 959.6,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 3,
+      "pool_par": 79,
+      "ring": 5073,
+      "seconds": 983.7,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 4,
+      "pool_par": 89,
+      "ring": 6266,
+      "seconds": 4721.8,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 5,
+      "pool_par": 83,
+      "ring": 7564,
+      "seconds": 983.7,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 6,
+      "pool_par": 86,
+      "ring": 8873,
+      "seconds": 1015.5,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 7,
+      "pool_par": 78,
+      "ring": 10124,
+      "seconds": 960.7,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 8,
+      "pool_par": 71,
+      "ring": 11410,
+      "seconds": 953.0,
+      "solved": "398/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 9,
+      "pool_par": 97,
+      "ring": 12608,
+      "seconds": 4696.9,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 10,
+      "pool_par": 83,
+      "ring": 13916,
+      "seconds": 1027.4,
+      "solved": "399/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 11,
+      "pool_par": 90,
+      "ring": 15167,
+      "seconds": 976.3,
+      "solved": "399/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 12,
+      "pool_par": 73,
+      "ring": 16440,
+      "seconds": 998.5,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 13,
+      "pool_par": 86,
+      "ring": 17719,
+      "seconds": 1011.2,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 14,
+      "pool_par": 80,
+      "ring": 18959,
+      "seconds": 4740.2,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 15,
+      "pool_par": 72,
+      "ring": 20292,
+      "seconds": 1035.4,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 16,
+      "pool_par": 85,
+      "ring": 21518,
+      "seconds": 958.0,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 17,
+      "pool_par": 67,
+      "ring": 22797,
+      "seconds": 967.6,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 18,
+      "pool_par": 86,
+      "ring": 24099,
+      "seconds": 1034.9,
+      "solved": "400/400",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 19,
+      "pool_par": 86,
+      "ring": 25343,
+      "seconds": 4690.5,
+      "solved": "400/400",
+      "switch": "abstained"
+    }
+  ],
+  "run_name": "m1",
+  "seconds": 34565.2,
+  "started_unix": 1787346481.5009325,
+  "status": "complete",
+  "threads": {
+    "interop": 32,
+    "intra_op": 8,
+    "omp_family": "unset"
+  }
+}

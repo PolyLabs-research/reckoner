@@ -250,3 +250,17 @@ The F-14 ruling restores the clause's intent: **day one of a trained head.** The
 blend is on by default, and the head it blends becomes live when the pre-registered
 criterion clears. Nothing about `value_q_mse_weight` changes; what changes is that
 "day one" now names the day the premise holds.
+
+---
+
+## Comparands
+
+- `runs/ANCHORS.sha256`
+- `runs/gate_phase1_baselines.json`
+- `runs/phase1/anchor.json`
+- `runs/phase1/phase1.pt`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

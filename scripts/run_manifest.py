@@ -22,9 +22,19 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-#: Per-run record classes the must-track contract names (tests/test_gitignore_musttrack).
+#: VOUCHED — named by the must-track contract, which predates the run.
 PER_RUN = ("iterations.jsonl", "value_switch.jsonl", "LATEST")
-#: Named by the driver and by REHEARSAL-m1-attempt2.md.
+#: UNVOUCHED — these came from knowledge of what the driver writes, not from a
+#: page or the contract, so the manifest cannot vouch for them. Marked rather
+#: than reconciled away: a count of 27/27 with four entries flagged is a stronger
+#: artifact than 27/27 clean, because it tells a later reader where to look.
+#:
+#: `instruments.jsonl` and `ring-*` do appear on the expectations page at
+#: `f48fe1f`; `campaign_summary.json`, `checkpoint_watch.json`, `PASS-DONE` and
+#: the `pair_scores` path do not appear on any pre-run page or in the contract.
+UNVOUCHED = frozenset(
+    {"campaign_summary.json", "checkpoint_watch.json", "PASS-DONE", "pair_scores.jsonl"}
+)
 PER_RUN_ALSO = ("instruments.jsonl", "campaign_summary.json", "checkpoint_watch.json")
 #: Cadence iterations for a 20-iteration campaign at ladder_every = 5.
 CADENCE = (4, 9, 14, 19)
@@ -65,7 +75,10 @@ def main() -> int:
     missing = [rel for rel in want if not (args.run_dir / rel).exists()]
 
     print(f"\n  RUN MANIFEST — {args.run_dir}\n")
-    print(f"    expected by contract + pages : {len(want)}")
+    unvouched = [r for r in want if any(u in r for u in UNVOUCHED)]
+    print(f"    expected                     : {len(want)}")
+    print(f"      vouched (contract or page) : {len(want) - len(unvouched)}")
+    print(f"      UNVOUCHED (post-hoc)       : {len(unvouched)}")
     print(f"    present                      : {len(want) - len(missing)}")
     print(f"    MISSING                      : {len(missing)}")
     for rel in missing:

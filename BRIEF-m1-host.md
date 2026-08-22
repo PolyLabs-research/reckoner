@@ -60,3 +60,20 @@
   + golden green on pod; pilot table committed; M1-A2 committed.
 - Then BRIEF-chunk11-driver's own DONE-WHEN, executed on this host.
 Three failed attempts at any gate → BLOCKED, never a weakened gate.
+
+---
+
+## Comparands
+
+- `runs/pod_facts.json` — the pod-facts block §0a requires and DONE-WHEN
+  asserts. **NEVER PRODUCED, in any form** (F-45): no such file, and no page
+  carries the block either. A DONE-WHEN item marked satisfied with nothing
+  behind it.
+
+*The host brief specifies a procedure, not a measurement; its only artifact is
+the provenance record the procedure was supposed to produce.*
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

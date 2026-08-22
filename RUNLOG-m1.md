@@ -123,3 +123,20 @@ unavailable**, and F-37's immediate-forgetting result carries that weight instea
 Recorded as **F-40**: attempt 1's ring became load-bearing when a page cited it as
 the counterfactual arm, and registration follows creation rather than citation, so
 nothing ever registered it.
+
+---
+
+## Comparands
+
+- `runs/m1_final/m1_attempt2/` — the run this log records, in full
+- `runs/m1_final/m1_attempt2/campaign_summary.json` — the identity and the totals
+- `runs/m1_final/m1_attempt2/checkpoint_watch.json` — top-1 at every checkpoint
+- `runs/pod_artifacts/m1_rehearsal/` — attempt 1's surviving records
+- **GONE: attempt 1's ring** (`runs/m1_rehearsal/ring-*`) — the between-run
+  par-escalation comparand. Cited **in prose only**, which is why the sweep's
+  extractor could not see it (F-44), and why it is written here by hand.
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

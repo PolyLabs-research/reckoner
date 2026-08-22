@@ -45,3 +45,15 @@
   clock split included.
 - Resume mid-pass proven at a kill point.
 Three failed attempts at any gate → BLOCKED, never a weakened gate.
+
+---
+
+## Comparands
+
+**None.** A build brief; the smoke it specifies declares its own comparands on
+`PREREG-chunk10-smoke.md`. Empty by decision.
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

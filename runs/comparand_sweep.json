@@ -1,0 +1,608 @@
+{
+  "basis": "declaration",
+  "declared_and_covered": [
+    {
+      "artifact": "meta.json",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk5.md",
+        "FINDINGS.md"
+      ],
+      "registered": true
+    },
+    {
+      "artifact": "pair_scores.jsonl",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": true
+    },
+    {
+      "artifact": "phase1.pt",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": true
+    },
+    {
+      "artifact": "runs/paired/smoke_v1.jsonl",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-chunk10-smoke.md",
+        "PREREG-chunk11-part0.md"
+      ],
+      "registered": true
+    },
+    {
+      "artifact": "runs/phase1/phase1.pt",
+      "exists": true,
+      "pages": [
+        "GATE-chunk8-VERDICT.md",
+        "PREREG-chunk11-part0.md",
+        "PREREG-chunk11-part0bc.md",
+        "PREREG-chunk9-part0.md"
+      ],
+      "registered": true
+    }
+  ],
+  "declared_and_gone": [
+    {
+      "artifact": "runs/m1_rehearsal/ring-*",
+      "exists": false,
+      "pages": [
+        "RUNLOG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/pod_facts.json",
+      "exists": false,
+      "pages": [
+        "BRIEF-m1-host.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/ring0_replay/replay.json",
+      "exists": false,
+      "pages": [
+        "BRIEF-chunk11-restoration.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/suites/solve_in_7.jsonl",
+      "exists": false,
+      "pages": [
+        "PREREG-chunk11-part0bc.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "solve_in_10.jsonl",
+      "exists": false,
+      "pages": [
+        "PREREG-chunk11-part0bc.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "state-4.json",
+      "exists": false,
+      "pages": [
+        "REHEARSAL-m1.md"
+      ],
+      "registered": false
+    }
+  ],
+  "declared_and_unregistered": [
+    {
+      "artifact": "BRIEF-chunk11-driver.md",
+      "exists": true,
+      "pages": [
+        "RUNLOG-chunk11-driver-part0.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "campaign_summary.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "checkpoint_watch.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "ckpt-4.pt",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "docs/derivations.md",
+      "exists": true,
+      "pages": [
+        "GATE-chunk4-VERDICT.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "instruments.jsonl",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "REHEARSAL-m1-attempt2.md",
+        "REHEARSAL-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "iterations.jsonl",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "REHEARSAL-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "manifest.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/ANCHORS.sha256",
+      "exists": true,
+      "pages": [
+        "AMENDMENT-m1a4.md",
+        "FINDINGS.md",
+        "GATE-chunk8-VERDICT.md",
+        "PREREG-chunk10-smoke.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_ceiling.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-chunk11-part0bc.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_misses_diagnostic.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_part0_result.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_part0b_sweep.json",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk11-part0bc.md",
+        "PREREG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_part0c_mint.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_part0d_scripted_strata.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk11_part0e_null.json",
+      "exists": true,
+      "pages": [
+        "PREREG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/chunk7_gate_table.json",
+      "exists": true,
+      "pages": [
+        "ERRATA-chunk7.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/config_census.json",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk11-restoration.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/data/eval_held_out",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-chunk10-smoke.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/data/phase1_train",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-chunk10-smoke.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/data/train_100k",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "PREREG-chunk10-smoke.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/eval_independence.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate10b_trajectory.json",
+      "exists": true,
+      "pages": [
+        "SWEEP-m1a4.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_arithmetic.json",
+      "exists": true,
+      "pages": [
+        "ERRATA-chunk7.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_arithmetic_d2.json",
+      "exists": true,
+      "pages": [
+        "ERRATA-chunk7.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_arithmetic_topk.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_phase1_baselines.json",
+      "exists": true,
+      "pages": [
+        "GATE-chunk8-VERDICT.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_phase1_search.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_phase1_search_m1.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gate_phase1_search_m5.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gpu_equivalence_reference.json",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk9-part0.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/gpu_equivalence_smoke.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/ladder_smoke_result.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_final/m1_attempt2/",
+      "exists": true,
+      "pages": [
+        "RUNLOG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_final/m1_attempt2/campaign_summary.json",
+      "exists": true,
+      "pages": [
+        "RUNLOG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_final/m1_attempt2/checkpoint_watch.json",
+      "exists": true,
+      "pages": [
+        "RUNLOG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_final/sweep_rehearsal_frac.json",
+      "exists": true,
+      "pages": [
+        "AMENDMENT-m1a4.md",
+        "SWEEP-m1a4.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_final/sweep_verify.json",
+      "exists": true,
+      "pages": [
+        "AMENDMENT-m1a4.md",
+        "SWEEP-m1a4.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_rehearsal",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_rehearsal_recovered",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/m1_rehearsal_recovered/",
+      "exists": true,
+      "pages": [
+        "REHEARSAL-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/paired_census.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/paired_census_postfreeze.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/par_delta.json",
+      "exists": true,
+      "pages": [
+        "ERRATA-chunk5.md",
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/part0d_paired/",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk11-restoration.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/phase1/anchor.json",
+      "exists": true,
+      "pages": [
+        "GATE-chunk8-VERDICT.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/phase1/phase1_result.json",
+      "exists": true,
+      "pages": [
+        "SWEEP-m1a4.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/pilot_phase1_timing.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/pod_artifacts/equivalence_gate/",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk11-restoration.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/pod_artifacts/m1_rehearsal/",
+      "exists": true,
+      "pages": [
+        "RUNLOG-m1.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/pod_artifacts/m1_rehearsal/ckpt-4.pt",
+      "exists": true,
+      "pages": [
+        "AMENDMENT-m1a4.md",
+        "BRIEF-chunk11-restoration.md",
+        "SWEEP-m1a4.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/shakedown_result.json",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk9-shakedown.md",
+        "RUNLOG-chunk11-driver-part0.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/state_extent.json",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk9-part0.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/suites",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk11-part0bc.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/supervision_contamination.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/sweep_verify.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "REHEARSAL-m1-attempt2.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/testcount.json",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "state_extent.json",
+      "exists": true,
+      "pages": [
+        "PREREG-chunk9-part0.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "uv.lock",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk9.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "value_switch.jsonl",
+      "exists": true,
+      "pages": [
+        "FINDINGS.md",
+        "REHEARSAL-m1.md"
+      ],
+      "registered": false
+    }
+  ],
+  "declared_record_shapes": [],
+  "last_fingerprint_move": "9f9691e",
+  "lint_undeclared_paths": {},
+  "pages_without_declaration": []
+}

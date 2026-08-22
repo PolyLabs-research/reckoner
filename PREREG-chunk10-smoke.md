@@ -132,3 +132,18 @@ gate's four slots. `sympy`'s `cas_version`.
 
 The paired set is **kept**, unlike the chunk-9 shakedown run directory: it is an
 instrument, and its whole purpose is to be the same set next time.
+
+---
+
+## Comparands
+
+- `runs/ANCHORS.sha256`
+- `runs/data/eval_held_out`
+- `runs/data/phase1_train`
+- `runs/data/train_100k`
+- `runs/paired/smoke_v1.jsonl`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

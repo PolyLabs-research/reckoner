@@ -122,3 +122,15 @@ Per-suite and pooled histograms; T and its percentage; solved/capped/stuck split
 the M-B pair counts, means, CIs and currencies; wall clock split by measurement;
 the resolved protocol table above as it was actually applied, read back from the
 config rather than re-typed.
+
+---
+
+## Comparands
+
+- `runs/paired/smoke_v1.jsonl`
+- `runs/phase1/phase1.pt`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

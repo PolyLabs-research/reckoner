@@ -767,3 +767,17 @@ campaign?"*, and its output was read as *"is this doing any work?"* — the same
 species of true-in-one-dimension claim this project has now catalogued nine
 times. The census's scope is fixed rather than footnoted: it reports
 **runtime-live** and **guard-live**, and only *neither* is a deletion candidate.
+
+---
+
+## Comparands
+
+- `runs/chunk11_misses_diagnostic.json`
+- `runs/chunk11_part0b_sweep.json`
+- `runs/chunk11_part0d_scripted_strata.json`
+- `runs/chunk11_part0e_null.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

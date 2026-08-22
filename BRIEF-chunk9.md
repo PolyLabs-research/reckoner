@@ -101,3 +101,14 @@ later reader does not "fix" it by turning the blend off.
 *not* exact — beating it is the whole escalation mechanism — so pool-labelled
 episodes will legitimately produce `z = +1`. Do not widen the invariant to
 silence them; that is the difference the invariant exists to preserve.
+
+---
+
+## Comparands
+
+- `uv.lock` — the blessed stack Part 0 pins and re-gates on change
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

@@ -1,0 +1,1 @@
+{"arms": ["model@48", "model@1"], "pass_index": 4, "problems": 1200, "rows": 2400, "rows_by_arm": {"model@1": 1200, "model@48": 1200}, "skipped_by_arm": {}}

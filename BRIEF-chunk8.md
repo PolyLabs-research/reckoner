@@ -51,3 +51,15 @@ silent merge.
 committed verbatim on receipt, before any item executes. Governance text that
 lives only in a conversation is destructible. This was learned once with the
 gate artifact and re-learned here; it is not being learned a third time.
+
+---
+
+## Comparands
+
+**None.** A build brief; its outputs are the chunk-8 gate's artifacts, declared
+on `GATE-chunk8-VERDICT.md` where they are relied on. Empty by decision.
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

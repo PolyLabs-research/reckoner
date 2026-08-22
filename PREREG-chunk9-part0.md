@@ -472,3 +472,17 @@ resource-arithmetic lesson; within this file that was right, and globally it was
 ambiguous, because `A4` also names the brief's extension bound. Both halves of the
 correction are recorded: the reference was under-qualified, and the label was
 mine to have qualified.
+
+---
+
+## Comparands
+
+- `runs/gpu_equivalence_reference.json`
+- `runs/phase1/phase1.pt`
+- `runs/state_extent.json`
+- `state_extent.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

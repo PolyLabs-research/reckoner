@@ -1,0 +1,27 @@
+{
+  "covered": {
+    "alarm census output": 0,
+    "cadence instruments": 1,
+    "checkpoint watch verdicts": 1,
+    "halt record": 0,
+    "iteration rows": 1,
+    "orphan ring beyond LATEST (post-kill debris)": 0,
+    "pass completion markers": 8,
+    "per-problem ladder rows": 8,
+    "resume state": 1,
+    "retained rings": 1,
+    "switch events": 1,
+    "the campaign summary": 1,
+    "the commit marker": 1,
+    "the run manifest": 1,
+    "torn-tail repair evidence": 0
+  },
+  "ignored": [],
+  "run": "runs/m1_final/m1_attempt2",
+  "uncovered": [
+    "alarm census output",
+    "halt record",
+    "orphan ring beyond LATEST (post-kill debris)",
+    "torn-tail repair evidence"
+  ]
+}

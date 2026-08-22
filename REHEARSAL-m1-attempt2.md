@@ -173,3 +173,15 @@ BLOCKED branch**, diagnosed before any further iteration.
 
 Artifacts **rsync back before anything is deleted**, and the volume is a network
 volume, so a vanished pod is no longer a lost run.
+
+---
+
+## Comparands
+
+- `instruments.jsonl`
+- `runs/sweep_verify.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

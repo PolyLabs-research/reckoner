@@ -100,3 +100,14 @@ dominates the bill and the projection must be *stratified*, not an average.
 16. **Flipping a `[provisional — chunk 5]` config tag to decided-with-source is
     part of chunk 5's DONE-WHEN.** `generator.*` and `ladder.problems_per_pass`
     are the ones in scope.
+
+---
+
+## Comparands
+
+- `meta.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

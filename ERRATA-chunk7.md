@@ -222,3 +222,16 @@ Renaming it is a config-key change, which AGENTS.md §7 makes a contract, so it 
 recorded here rather than done: **recommendation — rename to
 `search.batch_searches`, and flip the `[provisional — chunk 7]` tag at the same
 time.** Awaiting the principal.
+
+---
+
+## Comparands
+
+- `runs/chunk7_gate_table.json`
+- `runs/gate_arithmetic.json`
+- `runs/gate_arithmetic_d2.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

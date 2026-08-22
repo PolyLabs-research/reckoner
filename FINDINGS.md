@@ -2474,3 +2474,285 @@ the first purpose does not follow.
 **Standing action:** sweep the pages for anything cited as a comparand that is not
 on the volume, and register what remains. What is already lost is recorded as
 lost — attempt 1's ring, and with it the between-run par-escalation magnitude.
+
+---
+
+## F-41 — Pattern versus property, three trials, same defect: the pattern method lost every one
+
+**Measured:** 2026-08-22, and it has the shape of a controlled experiment rather
+than an anecdote. Same defect class, two methods, three trials, and the pattern
+method failed **all three while being applied by someone who knew the law and was
+actively trying to apply it.**
+
+The defect: record classes the code emits that `.gitignore` silently drops.
+
+| trial | pattern written | what the property then found |
+|---|---|---|
+| 1 | `!runs/part0d_paired/**` | `ladder/*/pass-*/pair_scores.jsonl` — the campaign arm |
+| 2 | `!runs/**/pair_scores.jsonl` | `PASS-DONE` — the pass completion marker |
+| 3 | `+ instruments, checkpoint_watch, manifest` | `campaign_summary.json` |
+
+Each pattern was written **as the fix for the previous miss**, by someone
+explicitly invoking "widen to the class". Each one widened to the class *it could
+see*.
+
+The property — `test_emitted_records_are_trackable`, which globs the paths a
+completed run **actually contains** and runs `git check-ignore` over them —
+caught all three, because **it never consults a remembered name.**
+
+### Why this is the canonical instance
+
+The law "assert the property that forbids the class, don't widen the pattern" has
+been stated in this project before. What this trial adds is that **the failure is
+not a knowledge failure.** The person writing each pattern knew the law, was
+applying it deliberately, and still enumerated from memory — because enumerating
+from memory is what writing a pattern *is*. No amount of care fixes it; only
+moving the enumeration to the artifact does.
+
+**And the demonstration completed itself.** The page-first comparand sweep — the
+tool built to enforce this very law — enumerates citations **by a regex over
+backticked paths**. It was written immediately after this finding was documented,
+by the person who had just recorded the pattern method losing three times, and it
+failed its own reference vector for exactly the reason predicted: attempt 1's ring
+is cited in prose (*"attempt 1's ring died with the pod"*) and no path-extractor
+can see it. **Knowing the law is not a defense against it.** Trial four went the
+same way as the first three.
+
+**Consequence:** `PASS-DONE` was ungoverned, and it is the marker the pass chain
+waits on — the artifact that lets a completed pass be re-read instead of re-run,
+which saved three hours when the equivalence gate crashed in its reporting.
+**The resume surface's own evidence was not versioned.** The marker family keeps
+falling outside whatever net is in place: the `pgrep -f` self-match, the missing
+`stop_at_4` marker (F-38), and now the pass marker.
+
+---
+
+## F-42 — Coverage tracks reachability; evidentiary value runs the other way
+
+**Found:** 2026-08-22, correcting F-41's own coverage report.
+
+The trackability property reports which record classes its sample exercised. Its
+first version listed `ring-*/meta.json` as "provisional rings (post-kill debris)"
+— and that glob matched `ring-19`, a **normal** artifact of a clean run. So the
+report read **"UNCOVERED: none"** while covering nothing abnormal at all: a
+sentence true of what it measured and silent about what mattered.
+
+**A coverage report whose reference vector is borrowed from its subject.** It
+would have kept saying "none" forever.
+
+Corrected, the honest count is **11 covered, 4 uncovered**:
+
+| uncovered class | why the sample cannot reach it |
+|---|---|
+| halt record (`BLOCKED-*.md`) | a clean run does not halt |
+| orphan ring beyond `LATEST` | requires a real kill mid-commit |
+| torn-tail repair evidence | requires an interrupted append |
+| alarm census output | requires an alarm |
+
+**Every one is an abnormal-exit class, and that is the correlation worth naming:
+coverage tracks how easy a state is to reach, and evidentiary value runs the
+other way.** The records that matter most when something goes wrong are exactly
+the ones a healthy sample can never exercise — so they pass green by never
+appearing, unless the report is made to name what it could not reach.
+
+**Registered for M2, not started:** two of the four have cheap synthetic
+reachability using machinery that already exists — the resume surface is
+identity-tested at both kill points, so torn-tail repair and orphan ring can be
+provoked in `golden`; and the halt record can be provoked by pointing the watcher
+at a below-band checkpoint, which its validation already does. **The alarm census
+is the hard one and probably stays uncovered, with the reason on its face.**
+
+---
+
+## F-43 — The recording contract was written for a smaller run than the project now performs
+
+**Found:** 2026-08-22, from the manifest's marking: of 27 entries, **9 vouched
+and 18 unvouched**, and only **six record classes trace to the must-track
+contract at all**.
+
+The manifest is only as good as what it can derive from, so the weak component is
+not the manifest — **it is the contract.**
+
+**Six classes is roughly the training loop's share.** The contract was written
+when a run *was* a training loop: iterations, switch events, `LATEST`, resume
+state, config, provenance. Since then the run has acquired three more subsystems,
+and **none brought a recording contract with it**:
+
+| subsystem | joined at | records it emits | in the contract? |
+|---|---|---|---|
+| **measurement** | F-33's routing | `instruments.jsonl`, `pair_scores.jsonl`, `PASS-DONE` | **no** |
+| **resume** | the four-step commit | orphan rings, torn-tail repair, `LATEST` transitions | partly |
+| **adjudication** | the watcher, the manifest | `checkpoint_watch.json`, `manifest.json`, halt records | **no** |
+
+**This predicts where the remaining gaps are**, which is more useful than the
+list of the ones already found. The extension owed is not "add the ones we
+noticed" — it is a recording contract per subsystem, written when the subsystem
+joins the run rather than when one of its artifacts is discovered missing.
+
+
+---
+
+## F-44 — The comparand sweep failed its own reference vector, and that is what it is worth
+
+**Found:** 2026-08-22, immediately, because the vector was **constructed rather
+than borrowed** — attempt 1's ring was named as the case the sweep must return
+*before* the sweep was written.
+
+It did not return it. The sweep enumerates citations with a regex over
+backtick-quoted paths; the ring is cited on three pages **in prose** — *"attempt
+1's ring died with the pod"*, *"attempt 1's ring became load-bearing when a page
+cited it"* — and never as a path. A path-extractor structurally cannot see it.
+
+The three entries it *did* return are real but incidental: two never-minted
+strata and a rehearsal artifact from the failed attempt.
+
+### Extraction infers intent from form; declaration records it
+
+Every extractor in this project has failed at the boundary of what its author
+remembered to encode, and **there is no fourth regex that changes that**. The fix
+is not a better pattern:
+
+> **Pages DECLARE their comparands in a structured block. The sweep reads the
+> declaration.** An artifact a page relies on and has not declared is a page
+> defect, catchable, rather than a silent gap.
+
+**With an honest limit.** The extractor does not die — it changes job, from
+authority to lint, flagging path-shaped strings absent from the declaration. But
+a prose-only citation like "attempt 1's ring" remains **uncatchable by machine**.
+That discipline is human and belongs in the page-writing habit: *if a sentence
+rests on an artifact, the artifact goes in the block.*
+
+### Why the failure stays in the record
+
+A tool that fails its own reference vector, recorded as failing, is worth more
+than one that passes. This one demonstrates that page-first was **necessary and
+insufficient** — a stronger claim than either half — and it only exists because
+the vector was constructed rather than borrowed from the subject.
+
+### The backlog it did surface
+
+**44 artifacts cited and unregistered**, against 5 registered. F-40 says
+registration follows citation; 44 citations had never been followed. They are
+**not** registered in one pass: pinning something unverified pins whatever state
+it happens to be in, including — for anything predating a fingerprint move — a
+state that may not match what the citing page assumed. Partitioned instead:
+
+| bucket | disposition |
+|---|---|
+| exists, uncited since the last fingerprint move | register cleanly |
+| exists, cited under a **superseded** config | `--as-of` treatment: digest **and** recorded fingerprint |
+| missing | joins cited-and-gone, with the ring |
+
+---
+
+## Comparands
+
+- `campaign_summary.json`
+- `checkpoint_watch.json`
+- `ckpt-4.pt`
+- `instruments.jsonl`
+- `iterations.jsonl`
+- `manifest.json`
+- `meta.json`
+- `pair_scores.jsonl`
+- `phase1.pt`
+- `runs/ANCHORS.sha256`
+- `runs/chunk11_ceiling.json`
+- `runs/chunk11_misses_diagnostic.json`
+- `runs/chunk11_part0_result.json`
+- `runs/chunk11_part0c_mint.json`
+- `runs/chunk11_part0d_scripted_strata.json`
+- `runs/data/eval_held_out`
+- `runs/data/phase1_train`
+- `runs/data/train_100k`
+- `runs/eval_independence.json`
+- `runs/gate_arithmetic_topk.json`
+- `runs/gate_phase1_search.json`
+- `runs/gate_phase1_search_m1.json`
+- `runs/gate_phase1_search_m5.json`
+- `runs/gpu_equivalence_smoke.json`
+- `runs/ladder_smoke_result.json`
+- `runs/m1_rehearsal`
+- `runs/m1_rehearsal_recovered`
+- `runs/paired/smoke_v1.jsonl`
+- `runs/paired_census.json`
+- `runs/paired_census_postfreeze.json`
+- `runs/par_delta.json`
+- `runs/pilot_phase1_timing.json`
+- `runs/supervision_contamination.json`
+- `runs/sweep_verify.json`
+- `runs/testcount.json`
+- `value_switch.jsonl`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*
+
+---
+
+## F-45 — What the retrofit found: the backlog was the point
+
+**The retrofit's completion criterion is a census of the past** — every committed
+page carries a `## Comparands` block, not just M1's. That criterion is what makes
+the declaration a forcing function rather than a heading nobody fills in, and
+running it over **24 pages** is where the backlog became visible.
+
+### The retrofit measured the extraction gap directly
+
+| | pages |
+|---|---:|
+| had a path-shaped citation the extractor could seed a block from | 12 |
+| had **none**, yet rest on artifacts | **12** |
+
+Half the record cites its evidence in a form no path-extractor sees: bare names
+(`ckpt-4`, `ANCHORS`), `.md` artifacts under sha256 pins (`docs/derivations.md`,
+the chunk-4 gate's entire subject), and prose. The 12 hand-written blocks are the
+human half of F-44's discipline, and they were not optional.
+
+### Three defects the first declaration-based run returned
+
+1. **`SKIP` ate a declaration.** The ring is declared as `runs/m1_rehearsal/ring-*`
+   and the filter dropped anything containing `*` — a filter written for the
+   *extractor* silently running over a *declaration*. The reference vector failed
+   a second time, for a new reason. Fixed by never applying lint filters to
+   declared entries and resolving families as globs, where resolving to nothing
+   **is** the GONE signal.
+2. **One page was missed** (`BRIEF-chunk11-restoration.md`). The completion
+   criterion caught it on its first run — which is the whole argument for having
+   one.
+3. **The partition dated the retrofit, not the reliance.** Keyed to the declaring
+   page, `git log -S` finds only today's block and every artifact reads
+   "superseded". Fixed: search all paths, because what is being dated is when the
+   **reliance** entered the record, not when the block was typed.
+
+### Two artifacts that no extractor could ever have found
+
+Both are absences, and an extractor enumerates presences.
+
+* **`runs/ring0_replay/replay.json`** — the halt gate. A DONE-WHEN item of
+  `BRIEF-chunk11-restoration.md`, the regression check on all four restoration
+  fixes at once (398/400 solved, 99 pool-par, 1,305 ring rows). **Never
+  committed, and not present in any form.** The numbers survive on the page; the
+  record that produced them does not.
+* **`runs/pod_facts.json`** — `BRIEF-m1-host.md` §0a requires a pod-facts block
+  committed, and its DONE-WHEN asserts *"Pod-facts committed"*. No such file
+  exists, and **no page carries the block either**. A DONE-WHEN item marked
+  satisfied with nothing behind it.
+
+### Registration stays partitioned
+
+**60 declared and unregistered.** Not registered in one pass: pinning something
+unverified pins whatever state it happens to be in, including — for anything
+predating M1-A4's fingerprint move — a state that may not match what the citing
+page assumed. Three buckets, by the test the sweep can already run:
+
+| bucket | count | disposition |
+|---|---:|---|
+| cited since `9f9691e` | 3 | register cleanly |
+| cited under a superseded config | 57 | `--as-of`: digest **and** recorded fingerprint |
+| missing | **6** | joins cited-and-gone, with the ring |
+
+The third bucket is the one worth knowing today, and it is the one that grew:
+from 3 under extraction to **6** under declaration, with the two most
+consequential — the ring and the halt gate — only reachable by hand.

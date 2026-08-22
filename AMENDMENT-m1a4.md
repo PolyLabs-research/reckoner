@@ -315,3 +315,18 @@ Fields **deleted**: the eight unbacked keys in §4.
 
 **The campaign fingerprint moves once, here, and PREREG-m1's recorded value must
 be updated with it.**
+
+---
+
+## Comparands
+
+- `runs/m1_final/sweep_rehearsal_frac.json` — the 11-arm table the six decisions rest on
+- `runs/m1_final/sweep_verify.json` — digests, raw counts, movement
+- `runs/pod_artifacts/m1_rehearsal/ckpt-4.pt` — the degraded checkpoint the band was derived from
+- `runs/ANCHORS.sha256` — the register this amendment's era is checked against
+- **GONE:** attempt 1's `ckpt-0` — cited as the control's reproduction target (0.8942); the value survives on the page, the checkpoint does not
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

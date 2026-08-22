@@ -85,9 +85,13 @@ runs/**
 # through. A pattern is still a pattern, so `test_emitted_records_are_trackable`
 # asserts the property over the paths the code ACTUALLY emits.
 !runs/**/pair_scores.jsonl
+!runs/**/PASS-DONE
 !runs/**/instruments.jsonl
 !runs/**/checkpoint_watch.json
 !runs/**/manifest.json
+!runs/**/campaign_summary.json
+!runs/**/record_coverage.json
+!runs/**/comparand_sweep.json
 # The test count, WRITTEN BY THE RUN rather than typed into a commit message.
 # F-16's rule ("compose the message after the run") broke one commit after it was
 # written, because message and run are convenient to send together and a rule that

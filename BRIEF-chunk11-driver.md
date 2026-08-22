@@ -178,3 +178,16 @@ mono-instance discipline requires regardless — and it also means Lever B
 (unit-parallel instrument passes, ratified in principle, construction gate
 pending) lands behind the seam later without the driver noticing. The dependency
 dissolves by building correctly rather than by sequencing around it.
+
+---
+
+## Comparands
+
+**None.** The driver brief specifies what to build; it cites no measured
+artifact. Declared empty deliberately — absence with a reason, not an
+unfilled heading.
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

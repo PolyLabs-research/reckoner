@@ -53,3 +53,14 @@ to the table.
 **Summaries drifted twice; `runs/par_delta.json` caught both.** That is the
 argument for records over reports, made twice in one file by two different
 authors.
+
+---
+
+## Comparands
+
+- `runs/par_delta.json`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*
