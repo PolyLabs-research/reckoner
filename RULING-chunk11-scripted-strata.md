@@ -56,3 +56,18 @@ is what matters. When it completes: the full table, the selection arithmetic wit
 every branch that fired or didn't, s\* — and then the anchor's scripted-strata
 baseline alongside, so PREREG-m1 freezes on a primary and a successor whose
 headroom are both numbers on a page.
+
+---
+
+## Comparands
+
+- `runs/chunk11_part0c_mint.json` — the mint this ruling accepts
+- `runs/chunk11_part0b_sweep.json` — the floor certificate's sweep
+- `runs/suites/scripted_in_7.jsonl`, `runs/suites/scripted_in_8.jsonl`,
+  `runs/suites/scripted_in_9.jsonl`, `runs/suites/scripted_in_10.jsonl` — the
+  minted strata the certificate bounds
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

@@ -41,21 +41,23 @@ from reckoner.dataset import read_anchors
 
 REPO = Path(__file__).resolve().parents[1]
 
-#: Pages that CITE — the normative and narrative record. `FINDINGS.md` is
-#: included (unlike in the config census, where writing about a defect would have
-#: counted as specifying it): a finding citing an artifact as evidence relies on
-#: it, and reliance is what F-40 attaches to.
-PAGE_GLOBS = (
-    "PREREG*.md",
-    "BRIEF*.md",
-    "REHEARSAL*.md",
-    "SWEEP*.md",
-    "RUNLOG*.md",
-    "AMENDMENT*.md",
-    "GATE*.md",
-    "FINDINGS.md",
-    "ERRATA*.md",
-)
+#: **Pages are defined by COMPLEMENT, not by a list.** The first build enumerated
+#: page globs by hand and missed four normative pages — three `RULING-*.md`, where
+#: the principal's decisions live, and `REGISTERED-ROUNDS.md`. "All 24 pages
+#: declare" really meant "all pages matching a list I wrote from memory", which is
+#: L7 wearing the sweep's own clothes for the second time (F-47).
+#:
+#: So: every tracked root-level `.md` is a page **unless excluded with a stated
+#: reason**. A new page is in scope by default, and the failure mode inverts from
+#: silent omission to a visible exclusion someone has to justify.
+NOT_PAGES = {
+    "README.md": "repo front matter, cites nothing it relies on",
+    "AGENTS.md": "operating instructions for the agent, not a record of the experiment",
+    "MEMORY.md": "index of cross-session memory, not a project page",
+    "CLAUDE.md": "tool configuration",
+    "experiment2_math_base625_spec.md": "the spec: names the subject, cites no artifact",
+    "experiment2_agent_plan.md": "the chunk plan; its DONE-WHEN gates are censused separately",
+}
 
 DECLARATION = re.compile(r"^## Comparands\s*$", re.M)
 
@@ -132,11 +134,15 @@ def lint_undeclared() -> dict[str, set[str]]:
 
 
 def _pages() -> list[Path]:
-    seen: dict[str, Path] = {}
-    for glob in PAGE_GLOBS:
-        for page in REPO.glob(glob):
-            seen[page.name] = page
-    return [seen[k] for k in sorted(seen)]
+    """Every TRACKED root-level .md, minus declared exclusions.
+
+    Tracked, not globbed: an untracked scratch file is not a page, and the set
+    comes from git rather than from anyone's memory of what the pages are called.
+    """
+    out = subprocess.run(
+        ["git", "ls-files", "*.md"], cwd=REPO, capture_output=True, text=True, timeout=30
+    )
+    return [REPO / n for n in sorted(out.stdout.split()) if "/" not in n and n not in NOT_PAGES]
 
 
 def _cited_before_move(artifact: str, pages: set[str]) -> bool:

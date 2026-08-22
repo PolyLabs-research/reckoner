@@ -1,0 +1,10 @@
+{
+  "iteration": 19,
+  "seed": 42,
+  "value_head": {
+    "live": false,
+    "switched_accuracy": null,
+    "switched_at_iteration": null,
+    "switched_threshold": null
+  }
+}

@@ -2732,9 +2732,16 @@ Both are absences, and an extractor enumerates presences.
 
 * **`runs/ring0_replay/replay.json`** — the halt gate. A DONE-WHEN item of
   `BRIEF-chunk11-restoration.md`, the regression check on all four restoration
-  fixes at once (398/400 solved, 99 pool-par, 1,305 ring rows). **Never
-  committed, and not present in any form.** The numbers survive on the page; the
-  record that produced them does not.
+  fixes at once (398/400 solved, 99 pool-par, 1,305 ring rows). Never committed,
+  and **never rsynced back**.
+
+  > **CORRECTION, 2026-08-22.** This finding originally read *"never committed,
+  > and not present in any form."* **That was wrong.** The artifact was on the
+  > pod's volume the entire time; I checked the local tree and git history and
+  > called the absence total. **Partial-as-whole** — the same class as verifying
+  > a pin by reading the local file instead of the pod's, now on its third
+  > instance. An absence established over one store is an absence *in that
+  > store*. See F-46, whose disposition this changes.
 * **`runs/pod_facts.json`** — `BRIEF-m1-host.md` §0a requires a pod-facts block
   committed, and its DONE-WHEN asserts *"Pod-facts committed"*. No such file
   exists, and **no page carries the block either**. A DONE-WHEN item marked
@@ -2900,3 +2907,103 @@ it is a live cost now, not a bookkeeping note.
 **Capture deferred to M2 launch**, since the pod must come up anyway and
 stop-not-terminate means it is the same host — **recorded with that caveat, never
 asserted as contemporaneous with M1.**
+
+
+---
+
+## F-49 — The halt gate is recovered, and the pod's facts are captured with their seam
+
+**The pod came up. `runs/ring0_replay/` was on the volume**, 743 MB, untracked
+and unrsynced. Pulled to `runs/pod_pull_20260822/`.
+
+### F-46's disposition improves rather than holds
+
+The recovered `replay.json`:
+
+```
+expected == got == {episodes: 400, from_pool: 99, ring: 1305, solved: 398}
+reproduced: True     draws_attempted: 99     fallbacks: 0
+```
+
+Every quantity matches attempt 2's iteration-0 tripwire **exactly**, across two
+implementations and a fingerprint move. So the corroboration argued for in F-46
+is no longer an argument standing in for a missing file — **both artifacts are in
+hand and they agree**. And `draws_attempted: 99, fallbacks: 0` answers F-28
+directly, which the tripwire alone could not.
+
+**Still not re-run.** The recovered artifact is the *original*, at the fingerprint
+its DONE-WHEN was discharged under. That is the thing a re-run could never have
+produced.
+
+### What else was only on the volume
+
+**All 20 checkpoints and all 20 snapshots.** Locally there were two (`ckpt-0`,
+`ckpt-19`). Eighteen checkpoints — the evidence base for *"top-1 held 0.9699 at
+every checkpoint"* — existed nowhere else. Pulled, 750 MB. The pulled `ckpt-0` is
+**byte-identical** to the copy already held, which is what makes the rest of the
+pull trustworthy rather than merely present.
+
+Resumability was never at risk (`LATEST`, `ring-19`, `ckpt-19`, `state-19` were
+already local). **Analysability was**, and the standing rule covers artifacts, not
+just the resume set.
+
+### Pod facts, with the seam named — `runs/pod_facts.json`
+
+`BRIEF-m1-host.md` §0a is discharged, and the block **splits what it can
+establish from what it cannot**, rather than presenting one list.
+
+**Established for M1** — from properties of software *on the volume M1 ran from*,
+not of today's container:
+
+| | |
+|---|---|
+| torch | `2.13.0+cpu`, installed **2026-08-19 17:32** |
+| M1 started | **2026-08-21 21:08:01 UTC**, two days later |
+| **GPU used** | **No.** A `+cpu` build cannot use a GPU on any hardware. |
+| wall-clock check | 21:08:01 + 34,565.2 s = **06:44:06**, matching `campaign_summary.json`'s mtime |
+
+**Observed today, NOT established for M1** — the pod was stopped and started; the
+volume is the same, the physical host may not be: Threadripper 7960X / 48
+threads, 251 GB, Ubuntu 20.04.6, kernel 6.8.0-45, no GPU device nodes at all.
+
+**Unrecoverable:** whether M1's physical CPU is the one observed today. No
+committed artifact records it, which is precisely the gap F-48 named — the block
+records the hole instead of papering it.
+
+### The probe that missed
+
+Five recorded endpoints all refused; the live pod is at `213.173.111.74:34804`,
+an address I never had. The refusals were consistent with *stopped* and caused by
+*stale addresses*. The hedge was right; the reason was not the one I had in mind,
+which is worth more than the hedge.
+
+---
+
+## F-50 — The page set was a list, so four rulings were out of reach
+
+`PAGE_GLOBS` was written by hand. It missed **three `RULING-*.md` — where the
+principal's decisions live — and `REGISTERED-ROUNDS.md`.** *"All 24 pages
+declare"* meant *"all pages matching a list I wrote from memory."*
+
+**F-47's shape, in the sweep itself, for the second time.** The rulings are the
+pages most likely to rest an argument on an artifact, and none of them names a
+path: they cite by number and in prose, which is the exact form declaration exists
+for.
+
+**The fix is a complement, not a longer list.** Every **tracked** root-level
+`.md` is a page unless excluded with a stated reason. A new page is in scope by
+default, and the failure mode inverts from *silent omission* to *a visible
+exclusion someone has to justify*.
+
+28 pages, all declaring. The four rulings' blocks were hand-written, because
+nothing in them could have been extracted.
+
+### A category the sweep still conflates
+
+`state-4.json` is declared gone, and it is gone **by design** — the retention
+policy prunes all but the last three states, and the volume holds `state-17/18/19`
+exactly as specified. That is not a lost artifact; it is a **page citing something
+the system is built to delete.** Cited-and-pruned is a governance conflict — the
+citation and the retention policy disagree and nobody adjudicated — and it should
+not sit in the same bucket as a ring that died with a pod. **Not fixed here**;
+recorded as the next distinction the sweep owes.

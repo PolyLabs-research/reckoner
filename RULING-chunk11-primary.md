@@ -65,3 +65,17 @@ protocol first — rule before measurement, all the way down — then run Part-0
 sweep and mint Part-0c, then PREREG-m1 freezes on their numbers with the primary's
 four-tuple filled in by mechanism rather than choice. The brief's final text lands
 with those numbers in it. Run the sweep.
+
+---
+
+## Comparands
+
+- `runs/paired_census_postfreeze.json` — the post-freeze re-census at 0/0, the
+  digest proving F-18's disposition was verified rather than asserted
+- `runs/testcount.json` — F-16's mechanism: the `pytest_sessionfinish` writer
+- `runs/paired_census.json` — the pre-freeze census the 0/0 is read against
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

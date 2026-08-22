@@ -46,6 +46,14 @@
         "PREREG-chunk9-part0.md"
       ],
       "registered": true
+    },
+    {
+      "artifact": "runs/suites/scripted_in_7.jsonl",
+      "exists": true,
+      "pages": [
+        "RULING-chunk11-scripted-strata.md"
+      ],
+      "registered": true
     }
   ],
   "declared_and_gone": [
@@ -54,22 +62,6 @@
       "exists": false,
       "pages": [
         "RUNLOG-m1.md"
-      ],
-      "registered": false
-    },
-    {
-      "artifact": "runs/pod_facts.json",
-      "exists": false,
-      "pages": [
-        "BRIEF-m1-host.md"
-      ],
-      "registered": false
-    },
-    {
-      "artifact": "runs/ring0_replay/replay.json",
-      "exists": false,
-      "pages": [
-        "BRIEF-chunk11-restoration.md"
       ],
       "registered": false
     },
@@ -135,7 +127,8 @@
       "artifact": "docs/derivations.md",
       "exists": true,
       "pages": [
-        "GATE-chunk4-VERDICT.md"
+        "GATE-chunk4-VERDICT.md",
+        "REGISTERED-ROUNDS.md"
       ],
       "registered": false
     },
@@ -208,7 +201,8 @@
       "exists": true,
       "pages": [
         "PREREG-chunk11-part0bc.md",
-        "PREREG-m1.md"
+        "PREREG-m1.md",
+        "RULING-chunk11-scripted-strata.md"
       ],
       "registered": false
     },
@@ -216,7 +210,8 @@
       "artifact": "runs/chunk11_part0c_mint.json",
       "exists": true,
       "pages": [
-        "FINDINGS.md"
+        "FINDINGS.md",
+        "RULING-chunk11-scripted-strata.md"
       ],
       "registered": false
     },
@@ -446,7 +441,8 @@
       "artifact": "runs/paired_census.json",
       "exists": true,
       "pages": [
-        "FINDINGS.md"
+        "FINDINGS.md",
+        "RULING-chunk11-primary.md"
       ],
       "registered": false
     },
@@ -454,7 +450,9 @@
       "artifact": "runs/paired_census_postfreeze.json",
       "exists": true,
       "pages": [
-        "FINDINGS.md"
+        "FINDINGS.md",
+        "RULING-chunk10-close.md",
+        "RULING-chunk11-primary.md"
       ],
       "registered": false
     },
@@ -526,10 +524,35 @@
       "registered": false
     },
     {
+      "artifact": "runs/pod_facts.json",
+      "exists": true,
+      "pages": [
+        "BRIEF-m1-host.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/ring0_replay/replay.json",
+      "exists": true,
+      "pages": [
+        "BRIEF-chunk11-restoration.md"
+      ],
+      "registered": false
+    },
+    {
+      "artifact": "runs/rule_participation.json",
+      "exists": true,
+      "pages": [
+        "REGISTERED-ROUNDS.md"
+      ],
+      "registered": false
+    },
+    {
       "artifact": "runs/shakedown_result.json",
       "exists": true,
       "pages": [
         "PREREG-chunk9-shakedown.md",
+        "RULING-chunk10-close.md",
         "RUNLOG-chunk11-driver-part0.md"
       ],
       "registered": false
@@ -571,7 +594,8 @@
       "artifact": "runs/testcount.json",
       "exists": true,
       "pages": [
-        "FINDINGS.md"
+        "FINDINGS.md",
+        "RULING-chunk11-primary.md"
       ],
       "registered": false
     },

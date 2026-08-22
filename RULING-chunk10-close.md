@@ -63,3 +63,19 @@ cross-switch watch armed; pool composition growth; z-by-par_source as the
 draw-inflation watch; the BLOCKED branches. A primary whose floor and ceiling
 nobody computed doesn't freeze — that's the whole record speaking with one voice.
 Run Part 0; the brief lands on its numbers.
+
+---
+
+## Comparands
+
+- `runs/shakedown_result.json` — the ladder audit's record: 251 + 138 = 389, the
+  real SIGKILL, and 778 rows identical row-for-row with zero duplicates
+- `runs/paired_census_postfreeze.json` — F-18's post-removal digest
+
+*A ruling cites its evidence in prose and by number, never by path. That is why
+this block is written by hand and why the sweep could not have found it.*
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

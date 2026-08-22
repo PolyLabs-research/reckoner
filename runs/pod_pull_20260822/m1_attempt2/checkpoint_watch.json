@@ -1,0 +1,54 @@
+{
+  "band": 0.968,
+  "expected_ckpt0": "5870537e58fcc6096b687cbca2d94bd9989dd2ce01ce118c30c8be3a07507d44",
+  "attempt_1": [
+    0.8942,
+    0.8942,
+    0.8877,
+    0.8893,
+    0.8845
+  ],
+  "verdicts": [
+    {
+      "iteration": 0,
+      "top1": 0.9699,
+      "hits": 1192,
+      "n": 1229,
+      "digest": "5870537e58fcc6096b687cbca2d94bd9989dd2ce01ce118c30c8be3a07507d44",
+      "holds_band": true
+    },
+    {
+      "iteration": 1,
+      "top1": 0.9699,
+      "hits": 1192,
+      "n": 1229,
+      "digest": "726c54564994196a0980443ad400bcd226d698617e3c9109d277c40e161d4a1b",
+      "holds_band": true
+    },
+    {
+      "iteration": 2,
+      "top1": 0.9699,
+      "hits": 1192,
+      "n": 1229,
+      "digest": "71c97b22fe135a813f0d02ddc7a2f2ed715a473ed7e0045bb7cd0b3c0dabe3be",
+      "holds_band": true
+    },
+    {
+      "iteration": 3,
+      "top1": 0.9699,
+      "hits": 1192,
+      "n": 1229,
+      "digest": "6549b96e61e6ac9965372ed9a16f11b7bbe35296c4de1413e733ced05a3e797b",
+      "holds_band": true
+    },
+    {
+      "iteration": 4,
+      "top1": 0.9699,
+      "hits": 1192,
+      "n": 1229,
+      "digest": "909778c981c91bb378e481bb38bff5cac0a6ccb2c40ccc52aeeb86c4c5ed890b",
+      "holds_band": true
+    }
+  ],
+  "halted": false
+}

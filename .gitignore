@@ -93,6 +93,7 @@ runs/**
 !runs/**/record_coverage.json
 !runs/**/comparand_sweep.json
 !runs/**/donewhen_census.json
+!runs/**/pod_facts.json
 # The test count, WRITTEN BY THE RUN rather than typed into a commit message.
 # F-16's rule ("compose the message after the run") broke one commit after it was
 # written, because message and run are convenient to send together and a rule that

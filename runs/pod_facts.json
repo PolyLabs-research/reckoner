@@ -1,0 +1,43 @@
+{
+  "_what_this_is": "Discharges BRIEF-m1-host.md \u00a70a, which asserted 'Pod-facts committed' with nothing behind it (F-48).",
+  "captured": "2026-08-22, on a pod restart AFTER M1 completed. NOT contemporaneous with M1.",
+  "pod": {
+    "name": "live_blush_butterfly",
+    "id": "vidvtnscafebhf",
+    "ssh": "root@213.173.111.74:34804",
+    "container_id": "1ba7575aad61"
+  },
+  "established_for_M1": {
+    "_basis": "properties of software ON THE VOLUME, which M1 ran from \u2014 not of today's container",
+    "torch": "2.13.0+cpu",
+    "torch_installed": "2026-08-19 17:32",
+    "m1_started_utc": "2026-08-21 21:08:01",
+    "gpu_used": false,
+    "gpu_reason": "torch is a +cpu build, installed two days BEFORE M1 started; such a build cannot use a GPU on any hardware",
+    "python": "3.12.11",
+    "wall_clock_check": "started 21:08:01 + 34565.2s = 06:44:06, matching campaign_summary.json mtime 2026-08-22 06:44",
+    "threads": {
+      "interop": 32,
+      "intra_op": 8,
+      "omp_family": "unset"
+    },
+    "dtypes": {
+      "train": "bf16",
+      "measure": "fp32"
+    }
+  },
+  "observed_today_NOT_established_for_M1": {
+    "_caveat": "The pod was stopped and started. The VOLUME is the same (it carries M1's artifacts); the physical host may not be. These are today's container's facts and are recorded as such.",
+    "cpu": "AMD Ryzen Threadripper 7960X 24-Cores",
+    "cpu_threads": 48,
+    "memory_gb": 251,
+    "os": "Ubuntu 20.04.6 LTS",
+    "kernel": "6.8.0-45-generic",
+    "gpu_device_nodes": "none (/dev/nvidia*, /dev/kfd, /dev/dri all absent)",
+    "mkldnn": true,
+    "volume_mount": "mfs#euro-2.runpod.net:9421 -> /workspace, 2.1P"
+  },
+  "unrecorded_and_unrecoverable": [
+    "Whether M1's physical CPU is the one observed today. No committed artifact records M1's host, which is the gap F-48 names."
+  ]
+}

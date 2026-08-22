@@ -172,3 +172,18 @@ appeared to be, and `docs/derivations.md` is regenerated and re-proofread.
 
 **Scope note.** The derivation renderer does not depend on the panel, so this
 round cannot change any derivation text — only the panels beside it.
+
+---
+
+## Comparands
+
+- `runs/rule_participation.json` — the participation evidence rounds are scored on
+- `docs/derivations.md` — the derivation record rounds amend
+
+*The round register records DECISIONS about the ruleset. Its comparands are the
+evidence each round was decided on, not the ruleset itself.*
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*
