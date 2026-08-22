@@ -2756,3 +2756,147 @@ page assumed. Three buckets, by the test the sweep can already run:
 The third bucket is the one worth knowing today, and it is the one that grew:
 from 3 under extraction to **6** under declaration, with the two most
 consequential — the ring and the halt gate — only reachable by hand.
+
+---
+
+## F-46 — The halt gate's record is gone; its subject survives with better provenance
+
+**Disposition: record the absence, do not re-run.** Not honesty alone — the
+evidence `runs/ring0_replay/replay.json` carried has already been reproduced **by
+a different route**, and that artifact is committed:
+
+| quantity | replay harness (gone) | attempt 2's iteration-0 tripwire (committed) |
+|---|---|---|
+| ring rows after iteration 0 | 1,305 | `campaign_summary.json` → `iterations[0].ring` = **1305** |
+| episodes solved | 398 / 400 | `iterations.jsonl` → `episodes_solved` **398**, `episodes` **400** |
+| pool-par | 99 | `pool_par_fraction` 0.2475 × 400 = **99**, and `z_by_par_source.pool` sums to **99** |
+
+**The route difference is the point.** `scripts/ring0_replay.py` is a standalone
+harness replaying a fixed ring under a fixed seed. The tripwire is **the driver's
+own iteration 0**, emitting its record in the normal course. Two implementations
+agreeing beats one recorded — the missing file was never corroborated.
+
+### The agreement crosses a fingerprint move, and that was predictable
+
+The replay harness gated at `ce41af96…`; attempt 2's iteration 0 ran at
+`8443847b…`, after M1-A4. The numbers are identical anyway, and **the inertness
+argument predicts that rather than merely tolerating it**: `rehearsal_frac` is a
+*training* field, and iteration 0's episodes are generated **before the first
+training step**, so the moved field cannot reach the episode path. The record
+confirms a prediction instead of presenting a coincidence.
+
+### Why re-running would be worse than the gap
+
+A re-run produces a **new artifact at today's fingerprint**, filed against a
+DONE-WHEN discharged under a superseded one. That is **backdating dressed as
+diligence**. The absence is recorded, the surviving evidence is cited, and the
+route difference is named — which is more than the file itself would have said.
+
+---
+
+## F-47 — A demoted mechanism's filters do not retire with it
+
+The `SKIP` list was written for the **extractor**: patterns and examples a page
+mentions but does not rely on. When F-44 demoted the extractor to a lint and made
+the declaration block the authority, `SKIP` kept running — over the declarations.
+
+It dropped anything containing `*`, and the first thing it ate was
+`runs/m1_rehearsal/ring-*`, **the declaration of attempt 1's ring**: the sweep's
+reference vector failed a second time, for a new reason, in the mechanism built
+to fix the first failure.
+
+> **When a mechanism is superseded, its configuration does not retire with it.
+> It starts applying to something that never asked for it.**
+
+**This is L7's shape with the boundary being TIME rather than scope.** L7 is a
+check whose reach stops at what its author encoded; this is a check whose reach
+**outlives the thing it was encoded for**. The declaration block is new and
+everything else in the pipeline predates it, so every filter, skip-list and
+normaliser in that pipeline was written against different assumptions and none of
+them announced it.
+
+**The fix is not a better `SKIP`.** Lint filters are never applied to declared
+entries — a block is written by hand, so everything in it is intentional — and
+families resolve as globs, where **resolving to nothing IS the GONE signal**
+rather than a parse failure.
+
+**The class to sweep for:** any component demoted, wrapped or superseded whose
+configuration was not re-scoped at the same commit.
+
+---
+
+## F-48 — DONE-WHEN items are self-attested
+
+`runs/pod_facts.json` is not a lost artifact. `BRIEF-m1-host.md` §0a requires a
+pod-facts block committed; its DONE-WHEN asserts *"Pod-facts committed"*; no such
+file exists and **no page carries the block either**. The gate passed with
+nothing behind it.
+
+**The file is the symptom. The finding is that nothing checks a DONE-WHEN item
+against an artifact** — every one of them is discharged by someone writing that
+it was. That is the **never-firable MUST_REACH one layer up**: a check that
+cannot fail, because satisfaction is asserted rather than demonstrated.
+
+**Ordered work: a census of DONE-WHEN items across every brief**, asking of each:
+
+1. does an artifact exist that discharges it?
+2. **would anything have noticed if it didn't?**
+
+Question 2 is the real one. Question 1 finds gaps; question 2 finds the class.
+
+**Third census of the past this week** — the config census, the record-coverage
+census, and now this.
+
+### What it returned: 36 clauses, 13 with nothing behind them
+
+`scripts/donewhen_census.py`. **Its reference vector is `Pod-facts committed`**,
+and it returns it.
+
+| verdict | n | meaning |
+|---|---:|---|
+| ENFORCED | 23 | a command, test or runtime refusal would have failed |
+| **UNCHECKABLE** | **13** | prose only — nothing names a thing a machine could check |
+| NO ARTIFACT | 0 | — |
+| UNENFORCED | 0 | — |
+
+**`BRIEF-m1-host.md` contributes 5 of the 13** — its entire DONE-WHEN is
+self-attested, which is why the pod-facts gap came from that page and not
+another.
+
+### Three defects found while building it, all the same species
+
+1. **A never-firable branch, inside the detector built to find never-firable
+   checks.** The first build asked *"is there an artifact?"* before *"would
+   anything have noticed?"*, so `UNCHECKABLE` short-circuited and the `ENFORCED`
+   branch was computed and discarded. 20 of 20 items landed in one bucket — a
+   degenerate result that had to be checked before it could be reported.
+2. **Wrong granularity, which hid the motivating case.** *"Pod-facts committed;
+   ANCHORS re-digest 0 mismatches; suite + battery + golden green"* is one bullet
+   carrying four claims, and one enforced conjunct (`golden`) made the whole
+   bullet read ENFORCED. **An always-firing bound.** Split on clauses: 20 items
+   became 36, and `Pod-facts committed` became visible as its own clause.
+3. **Enforcement searched the wrong tree.** Scoped to `tests/` and `scripts/`,
+   the census reported *RNG non-perturbation* — one of the three conditions set
+   for routing the cadence — as unchecked. It is asserted, as a `CampaignRefusal`
+   at `campaign.py:336`, and by nothing under `tests/`. **This project's
+   enforcement idiom is a runtime refusal in the driver**, and a census that
+   excludes `src/` measures the wrong thing.
+
+### The direction of the error, stated rather than tuned away
+
+**13 is an upper bound on the unchecked, not a count of defects.** Verification
+of three UNCHECKABLE clauses by hand: two were under-credited (tests exist under
+names the keyword list does not carry), one was genuinely absent from `tests/`
+and found in `src/`. Tuning stopped there deliberately — past that point the
+classifier is being fitted until its number looks good, which is the failure this
+census exists to detect.
+
+### The M1 cost, stated rather than left silent
+
+`RUNLOG-m1.md` carries **no host description**. A reader in three months cannot
+say what hardware produced M1. That is precisely what §0a existed to prevent, and
+it is a live cost now, not a bookkeeping note.
+
+**Capture deferred to M2 launch**, since the pod must come up anyway and
+stop-not-terminate means it is the same host — **recorded with that caveat, never
+asserted as contemporaneous with M1.**

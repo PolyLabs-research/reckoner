@@ -126,6 +126,35 @@ nothing ever registered it.
 
 ---
 
+## Host — what the record carries, and what it does not
+
+**M1 has no host description, and that is a gap rather than an omission of
+convenience** (F-48). `BRIEF-m1-host.md` §0a existed to prevent exactly this: a
+reader in three months cannot say what hardware produced M1.
+
+**Vouched, from committed artifacts:**
+
+| | | source |
+|---|---|---|
+| interop / intra-op threads | 32 / 8 | `campaign_summary.json` → `threads` |
+| train / measure dtype | bf16 / fp32 | `iterations.jsonl` → `train_dtype`, `measure_dtype` |
+| wall clock | 34,565.2 s (9.6 h), 20 iterations | `campaign_summary.json` → `seconds` |
+| `omp_family` | `unset` | `campaign_summary.json` → `threads` |
+
+**Absent, with reason:** GPU model, CPU, OS, driver, container image. **No
+committed artifact records them.** They are not written here from recollection —
+a value belongs on a page quoted from the record, never reconstructed, and the
+whole point of F-48 is that an assertion with nothing behind it is what produced
+this gap.
+
+**Capture deferred to M2 launch.** The pod must come up anyway, and
+stop-not-terminate means it is the same host — so the facts will be recorded
+**with that caveat**, as *"the host M2 launched on, believed the same as M1's by
+stop-not-terminate"*, and never as contemporaneous with M1. A caveated fact is
+worth more than a confident reconstruction.
+
+---
+
 ## Comparands
 
 - `runs/m1_final/m1_attempt2/` — the run this log records, in full

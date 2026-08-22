@@ -603,6 +603,13 @@
   ],
   "declared_record_shapes": [],
   "last_fingerprint_move": "9f9691e",
-  "lint_undeclared_paths": {},
+  "lint_undeclared_paths": {
+    "campaign_summary.json": [
+      "RUNLOG-m1.md"
+    ],
+    "iterations.jsonl": [
+      "RUNLOG-m1.md"
+    ]
+  },
   "pages_without_declaration": []
 }

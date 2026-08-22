@@ -1,0 +1,348 @@
+{
+  "counts": {
+    "NO ARTIFACT": 0,
+    "UNCHECKABLE": 13,
+    "UNENFORCED": 0,
+    "ENFORCED": 23
+  },
+  "items": [
+    {
+      "item": "Synthetic Elo tests green incl. the rigged-50% null.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "elo(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk10.md"
+    },
+    {
+      "item": "Self-match identity EXACT, contrast case beside it.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "self_match(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk10.md"
+    },
+    {
+      "item": "One full smoke pass against all rungs, every number verbatim, wall- clock split included.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk10.md"
+    },
+    {
+      "item": "Resume mid-pass proven at a kill point.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "resume(test)",
+        "resume(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk10.md"
+    },
+    {
+      "item": "make golden green via the driver, budget unchanged.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-driver.md"
+    },
+    {
+      "item": "Both kill points through the driver: killed-and-resumed identical to uninterrupted, row for row.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "resume(test)",
+        "resume(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-driver.md"
+    },
+    {
+      "item": "Fingerprint refusal: mismatched config refused",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "fingerprint(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-driver.md"
+    },
+    {
+      "item": "matched accepted.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk11-driver.md"
+    },
+    {
+      "item": "3-iteration dress rehearsal at CAMPAIGN config, expectations committed first: every row class present (iteration, ladder, switch, funnel, pool composition, no-r",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "pool_composition(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-driver.md"
+    },
+    {
+      "item": "Rehearsal path wired",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "rehearsal(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "gradient-arrival asserted in both polarities",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "rehearsal(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "**inertness at `f = 0.0` proved by bit-identical checkpoint digest.**",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "inert(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "Cadence routed through `run_pass`",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "run_pass(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "seam still mono-instance",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "mono(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "**equivalence gate reproduces 910 / 722 / 108 and 22-50-36 exactly**",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "equivalence_gate(script)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "RNG non-perturbation asserted.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "getstate(runtime:campaign.py)",
+        "getstate(runtime:campaign.py)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "Live-config gate green, with every exemption carrying evidence.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "config_census(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "Interop pin asserted against its declared value.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "interop_threads(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "**Ring-0 replay reproduces iteration 0 \u2014 398/400 solved, 99 pool-par, 1,305 ring rows** \u2014 which is the regression check on all four fixes at once: those numbers",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "ring0_replay(script)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "`make lint test` green",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "`golden` green.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk11-restoration.md"
+    },
+    {
+      "item": "Part 0 battery green with declared tolerance",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "occupancy declared.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "Golden green",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "both kill-points resume clean.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "resume(test)",
+        "resume(test)"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "3-iteration shakedown at default config with pre-registered plumbing expectations (rows populate, splits sum, snapshot loads, pool par carries provenance) \u2014 exp",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "shakedown deleted after recording, per plan.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "Four-tuples on any declared gate",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "verbatim numbers",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "tree-state block.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-chunk9.md"
+    },
+    {
+      "item": "Pod-facts committed",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-m1-host.md"
+    },
+    {
+      "item": "ANCHORS re-digest 0 mismatches",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-m1-host.md"
+    },
+    {
+      "item": "suite + battery + golden green on pod",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [
+        "command"
+      ],
+      "verdict": "ENFORCED",
+      "page": "BRIEF-m1-host.md"
+    },
+    {
+      "item": "pilot table committed",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-m1-host.md"
+    },
+    {
+      "item": "M1-A2 committed.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-m1-host.md"
+    },
+    {
+      "item": "Then BRIEF-chunk11-driver's own DONE-WHEN, executed on this host.",
+      "artifacts": [],
+      "missing": [],
+      "enforced_by": [],
+      "verdict": "UNCHECKABLE",
+      "page": "BRIEF-m1-host.md"
+    }
+  ]
+}
