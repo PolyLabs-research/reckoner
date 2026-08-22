@@ -89,8 +89,17 @@ SUITES = REPO / "runs" / "suites"
 # The driver runs TWO profiles and therefore makes TWO assertions, each pinned
 # where its profile acts (D-A2 §2). A single startup check would compare one
 # profile's value against a run that also uses the other.
-CAMPAIGN_FINGERPRINT = "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d"
-EVAL_FINGERPRINT = "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10"
+CAMPAIGN_FINGERPRINT = "ccfec081f4eb16040c5587cc738e0f1c4ccbce0fcaad0e56eb3c55aa08ebb5f6"
+EVAL_FINGERPRINT = "fd53b63f7502a4b106461ab1ce1f1fbab982e5d3df2ff5a07bc941c5760912de"
+
+#: The values M1 ACTUALLY RAN UNDER, kept because they are quoted on pages and a
+#: pin that moves must not silently rewrite what a completed run was measured at.
+#: The pin above is what THIS code computes; the era below is what M1 recorded.
+M1_ERA_FINGERPRINTS = {
+    "campaign": "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d",
+    "eval": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+    "_moved_by": "campaign.device, fingerprinted 2026-08-22 after F-51",
+}
 
 #: PREREG-m1 §4: both indistinguishability floors, on the 1,200-problem instrument.
 NO_REGRESS = {48: 1188, 1: 1167}
@@ -257,10 +266,53 @@ def assert_eval_profile(cfg: Config) -> str:
     got = config_fingerprint(ev)
     if campaign and got != EVAL_FINGERPRINT:
         raise CampaignRefusal(
-            f"eval profile fingerprint {got} != PREREG-m1's recorded "
-            f"{EVAL_FINGERPRINT}; this pass is not comparable to its baseline."
+            f"eval profile fingerprint {got} != the pinned {EVAL_FINGERPRINT}; "
+            f"this pass is not comparable to its baseline. (M1 ran under "
+            f"{M1_ERA_FINGERPRINTS['eval']}; the pin moved when "
+            f"{M1_ERA_FINGERPRINTS['_moved_by']}.)"
         )
     return got
+
+
+def assert_device(cfg: Config) -> dict:
+    """The declared device must be the device that runs, and it refuses.
+
+    **The property that forbids the class**, where the class is *"ran somewhere
+    nobody declared."* So the refusal is `declared != usable`, not
+    `declared != best available`:
+
+    * **declared unavailable → REFUSE.** A page saying `cuda` while the runtime
+      offers only CPU produces numbers from a machine the page does not describe.
+    * **GPU present, `cpu` declared → RECORDED, not refused.** That is M1: 9.6
+      hours on a `+cpu` wheel with a card attached. It is a *cost* finding, and
+      making it a refusal would forbid the one configuration M1 actually ran —
+      a gate that fails its own history is a gate nobody keeps.
+
+    The governance teeth are in the **fingerprint**, not here: `campaign.device`
+    is fingerprinted, so moving to GPU mid-campaign moves the fingerprint and
+    lands as an amendment. This assertion only guarantees the declaration is
+    true, which is what makes the fingerprint mean anything.
+    """
+    declared = cfg.campaign.device
+    build = "cuda" if torch.version.cuda else ("rocm" if torch.version.hip else "cpu")
+    accelerator = torch.cuda.is_available()
+
+    if declared != "cpu" and not accelerator:
+        raise CampaignRefusal(
+            f"campaign.device declares {declared!r} and the runtime offers no "
+            f"accelerator (torch {torch.__version__}, build {build!r}). Execution "
+            "environment is fingerprinted: a run on an undeclared device rescales "
+            "every wall-clock number in the record and changes numerics under MCTS."
+        )
+    return {
+        "declared": declared,
+        "torch_version": torch.__version__,
+        "torch_build": build,
+        "accelerator_present": accelerator,
+        # M1's cost, made visible wherever this record lands rather than
+        # reconstructed from a wheel name two days later.
+        "gpu_present_and_unused": bool(accelerator and declared == "cpu"),
+    }
 
 
 def assert_threads(cfg: Config) -> dict:
@@ -558,6 +610,7 @@ def preflight(cfg: Config, model, scratch: Path) -> None:
     D-A1 §3. Not a flag: a script that smokes its output path only when asked is
     a script that will be run without asking.
     """
+    assert_device(cfg)
     started = time.perf_counter()
     shutil.rmtree(scratch, ignore_errors=True)
     scratch.mkdir(parents=True)

@@ -141,3 +141,9 @@ campaign:
   episodes_per_iteration: 400  # [M1-A2 §3] CHOSEN-not-derived; consequences computed on the page
   intra_op_threads: 8       # [M1-A2 §4] EXERCISED pin — the clamp that made the licence's parity possible
   interop_threads: 32       # [M1-A2 §4] OBSERVED pin — constant on both hosts, undiscriminated
+  # [F-51, 2026-08-22] EXERCISED. M1 ran 9.6 h on a `+cpu` wheel and nobody could
+  # state that for two days: the census covers config, the recording contract
+  # covers artifacts, and nothing covered execution environment. Device rescales
+  # every wall-clock number and changes numerics under MCTS, so moving it is an
+  # amendment — which the fingerprint now enforces rather than anyone remembering.
+  device: cpu

@@ -3007,3 +3007,142 @@ the system is built to delete.** Cited-and-pruned is a governance conflict — t
 citation and the retention policy disagree and nobody adjudicated — and it should
 not sit in the same bucket as a ring that died with a pod. **Not fixed here**;
 recorded as the next distinction the sweep owes.
+
+---
+
+## F-51 — Every wall-clock number in the record is a CPU number
+
+M1 ran 9.6 hours on a `+cpu` wheel. A card was attached and never touched. The
+consequence is not the rental: **every timing in the record is a CPU timing**,
+including the 3.5-hour rehearsal estimate, the 9.6-hour campaign, F-27's
+*cadence-cost-is-a-function-of-model-quality* finding, and the 227 → 79 minute
+improvement scored as a prediction hit.
+
+### The 227 → 79 confound, closed
+
+The comparison holds only if attempt 1 ran on the same build. **Attempt 1 ran
+2026-08-17**, on the pod that later died; the `+cpu` wheel was installed
+**2026-08-19 17:32**. Attempt 1 therefore predates the current environment by two
+days, and its own environment is unrecoverable.
+
+**The recovered halt gate settles it.** `runs/ring0_replay/replay.json` is dated
+**2026-08-19 20:21** — 2h49m *after* the `+cpu` install — so the replay ran on the
+CPU build, and it reproduced attempt 1's iteration 0 exactly. Three-way, on every
+recorded quantity:
+
+| | attempt 1 (08-17) | attempt 2 (08-21) | replay (08-19, `+cpu`) |
+|---|---:|---:|---:|
+| episodes / solved | 400 / 398 | 400 / 398 | 400 / 398 |
+| pool-par draws | 99 | 99 | 99 |
+| ring rows | 1,305 | 1,305 | 1,305 |
+| capped | 2 | 2 | — |
+| steps-minus-par histogram | `395,2,0,0,0,0,0 / <0:1` | **identical** | — |
+| `z_by_par_source` | bfs `0,-4,297` · pool `1,0,98` | **identical** | — |
+
+A CUDA→CPU change would have to leave a 400-episode histogram and a four-way
+z-breakdown untouched. **Attempt 1 ran on CPU. F-27's comparison is not
+device-confounded.**
+
+### But it is HOST-confounded, and iteration 0 measures by how much
+
+Iteration 0 is **provably identical work** across both attempts — same episodes,
+same outcomes, same ring rows — and rehearsal is a *training* field that cannot
+reach self-play at iteration 0. So its self-play time is a controlled hardware
+benchmark the campaign produced for free:
+
+| | attempt 1 | attempt 2 | ratio |
+|---|---:|---:|---:|
+| self-play seconds, iteration 0 | 588.2 | 471.1 | **1.249×** |
+| train seconds, iteration 0 | 530.4 | 413.3 | 1.283× (also carries rehearsal) |
+
+**Attempt 2's host is ~25% faster on identical work.** So the 227 → 79 raw
+improvement of **2.87×** is roughly **2.30× once the host is divided out**. The
+prediction still hits; the margin was overstated by a quarter, and the correction
+comes from the record rather than from an argument.
+
+*The train ratio is not a clean host measurement — `rehearsal_frac = 0.65` cuts
+ring epochs — and is shown only so the two are not confused.*
+
+### The fix: device is fingerprinted, and preflight refuses
+
+**The census covers config, the recording contract covers artifacts, and nothing
+covered execution environment** — so the one variable that silently rescales every
+wall-clock number was the one variable no gate could see.
+
+`campaign.device` is now a fingerprinted field. `assert_device` runs in preflight:
+
+* **declared device unavailable → REFUSE.** That is the class *"ran somewhere
+  nobody declared."*
+* **GPU present, `cpu` declared → RECORDED, not refused.** That is M1 itself, and
+  a gate that fails its own history is a gate nobody keeps. It lands in the
+  record as `gpu_present_and_unused`.
+
+The teeth are in the **fingerprint**: M2 warm-starts from `ring-19` and
+`ckpt-19`, and moving to a GPU build changes numerics — MCTS over a small net is
+exactly where reduction-order differences show. That makes it a treatment applied
+mid-campaign, so it is an **amendment, not a convenience**, and the fingerprint
+enforces that instead of anyone remembering.
+
+**M1's era is preserved.** `M1_ERA_FINGERPRINTS` keeps `8443847b…` / `c8aa1fcc…`
+quotable, because a pin that moves must not silently rewrite what a completed run
+was measured at — and a deleted fingerprint cannot be reconstructed (F-39).
+
+### What the empty checkmark cost
+
+`pod_facts.json` was the designated capture for exactly this. Its DONE-WHEN was
+marked satisfied with nothing behind it, and the cost was **a 9.6-hour run whose
+execution environment nobody could state for two days**. That is the concrete
+answer to what an unsupported DONE-WHEN costs, and it is better evidence than any
+argument about discipline.
+
+---
+
+## F-52 — Registration pins against pruning
+
+`state-4.json` was cited by `REHEARSAL-m1.md` and deleted by `prune_rings`.
+**Neither was wrong.** The retention policy simply **outranked a citation it could
+not see.**
+
+> **A file ANCHORS names is retention-exempt, enforced in the retention code.**
+
+Cited-and-pruned then becomes *impossible* for anything registered; for anything
+unregistered it is the F-40 backlog's problem rather than a new class. No
+adjudication needed beyond that.
+
+**Both polarities in one test**, because an exemption only means something if
+pruning still happens: an unregistered ring is dropped, a registered one survives,
+and the test stubs **only the ANCHORS read** — the matcher itself runs. The first
+version stubbed the matcher and tested the stub, which is the doors-not-organs law
+catching me at the moment I wrote it.
+
+A pin on one file inside a ring pins the whole ring: losing `ring-4/tokens.bin`
+breaks the digest as surely as losing the directory.
+
+---
+
+## L8 — An absence claim names its store
+
+Third instance, so it gets a phrasing form rather than another finding.
+
+> **"Not present in the local tree or git history"** is checkable and true.
+> **"Not present in any form"** was neither.
+
+Cheap to enforce because it is a **sentence shape**, not a mechanism — and all
+three instances so far read correctly the moment the store is named. An absence
+established over one store is an absence *in that store*.
+
+---
+
+## L9 — A standing rule inherits the requirement it was written for
+
+The rsync rule was written for **resumability**: volume + git + rsync'd artifacts
+sufficient to resume elsewhere. By that standard nothing was missing — `LATEST`,
+`ring-19`, `ckpt-19`, `state-19` were all local.
+
+**Analysability is a different requirement, and it arrived later.** The 18
+intermediate checkpoints are the evidence base for *"top-1 held 0.9699 at every
+checkpoint"*, and they existed only on the volume.
+
+Same shape as the recording contract being written for a training loop and then
+asked to cover instruments. **A rule keeps solving the problem it was written
+for; it does not notice when a second one arrives.**

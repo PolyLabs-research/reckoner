@@ -387,3 +387,39 @@ def test_truncating_the_logs_is_idempotent() -> None:
         once = (run / "value_switch.jsonl").read_text()
         resume(run, CFG)
         assert (run / "value_switch.jsonl").read_text() == once
+
+
+def test_registration_pins_against_pruning(tmp_path, monkeypatch) -> None:
+    """A registered ring survives retention; an unregistered one does not.
+
+    Both polarities in one test, because the exemption is only meaningful if
+    pruning still happens. `state-4.json` was cited by a page and deleted by
+    `prune_rings`, and neither was wrong — the policy outranked a citation it
+    could not see. This makes that impossible for anything ANCHORS names.
+    """
+    from reckoner import resume as R
+
+    run = tmp_path / "run"
+    for n in range(6):
+        (run / f"ring-{n}").mkdir(parents=True)
+        (run / f"ring-{n}" / "tokens.bin").write_bytes(b"x")
+        (run / f"state-{n}.json").write_text("{}\n")
+    (run / "LATEST").write_text("5\n")
+
+    monkeypatch.setattr(R, "_registered", lambda _run: set())
+    dropped_none_pinned = R.prune_rings(run, keep=3)
+    assert dropped_none_pinned == [0, 1, 2], dropped_none_pinned
+    assert not (run / "state-0.json").exists()
+
+    # Rebuild, then pin ring-0 and state-0 and prune again.
+    for n in (0, 1, 2):
+        (run / f"ring-{n}").mkdir(parents=True, exist_ok=True)
+        (run / f"ring-{n}" / "tokens.bin").write_bytes(b"x")
+        (run / f"state-{n}.json").write_text("{}\n")
+
+    # Stub ONLY the ANCHORS read — the real matcher runs.
+    monkeypatch.setattr(R, "_registered", lambda _run: {"ring-0/tokens.bin"})
+    dropped = R.prune_rings(run, keep=3)
+    assert 0 not in dropped, "a registered ring must survive retention"
+    assert (run / "ring-0").exists() and (run / "state-0.json").exists()
+    assert dropped == [1, 2], f"unregistered rings must still be pruned: {dropped}"

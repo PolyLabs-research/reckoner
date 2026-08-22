@@ -364,3 +364,57 @@ def test_a_set_omp_variable_still_refuses() -> None:
             assert_threads(Config())
     finally:
         del os.environ[name]
+
+
+def test_device_is_fingerprinted_and_the_declaration_is_asserted() -> None:
+    """Both polarities, plus the cost the record must carry.
+
+    F-51: M1 ran 9.6 hours on a `+cpu` wheel and nobody could state that for two
+    days, because the census covered config and the recording contract covered
+    artifacts and NOTHING covered execution environment.
+    """
+    import dataclasses
+
+    from reckoner.campaign import CampaignRefusal, assert_device
+
+    cfg = Config()
+
+    # 1. The field is LIVE: varying it across its legal range moves the
+    #    fingerprint, which is what makes a device change an amendment.
+    gpu = dataclasses.replace(cfg, campaign=dataclasses.replace(cfg.campaign, device="cuda"))
+    assert config_fingerprint(cfg) != config_fingerprint(gpu)
+
+    # 2. Declaring a device the runtime cannot provide REFUSES.
+    if not torch.cuda.is_available():
+        with pytest.raises(CampaignRefusal, match="no accelerator"):
+            assert_device(gpu)
+    else:
+        # Where an accelerator exists, the declaration is satisfiable and the
+        # negative polarity is unreachable — asserted rather than skipped, so
+        # the test says which branch it took instead of silently passing.
+        assert assert_device(gpu)["accelerator_present"] is True
+
+    # 3. `cpu` is never refused, and the unused-accelerator cost is RECORDED.
+    record = assert_device(cfg)
+    assert record["declared"] == "cpu"
+    assert record["gpu_present_and_unused"] is torch.cuda.is_available()
+
+
+def test_the_m1_era_fingerprints_stay_quotable() -> None:
+    """A pin that moves must not rewrite what a completed run was measured at.
+
+    M1's numbers are quoted on pages against its fingerprints. Updating the pin
+    for a later amendment is correct; losing the era's values would make every
+    such page unverifiable — and reconstructing a deleted fingerprint is exactly
+    what `replace()` cannot do (the F-39 lesson).
+    """
+    from reckoner.campaign import M1_ERA_FINGERPRINTS
+
+    assert M1_ERA_FINGERPRINTS["campaign"] == (
+        "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d"
+    )
+    assert M1_ERA_FINGERPRINTS["eval"] == (
+        "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10"
+    )
+    # And the era is genuinely PAST: the live pins have moved off it.
+    assert M1_ERA_FINGERPRINTS["campaign"] != CAMPAIGN_FINGERPRINT

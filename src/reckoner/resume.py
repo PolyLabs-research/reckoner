@@ -135,11 +135,39 @@ def commit_iteration(
     prune_rings(run, keep=KEEP_RINGS)
 
 
+def _registered(run: Path) -> set[str]:
+    """Paths ANCHORS pins, expressed RELATIVE TO ``run``.
+
+    Relative to the run, not to the repo, so the matching below is ordinary
+    string work with no filesystem resolution — which lets a test stub this one
+    I/O boundary and still exercise the real matcher, rather than stubbing the
+    matcher and testing the stub.
+
+    Read fresh at each prune: a registration added after a run started must
+    protect what it names from that moment, not from the next process.
+    """
+    from reckoner.dataset import read_anchors
+
+    try:
+        prefix = f"{run.resolve().relative_to(Path(__file__).resolve().parents[2])}/"
+    except (ValueError, OSError):
+        return set()
+    return {p[len(prefix) :] for p in read_anchors() if p.startswith(prefix)}
+
+
 def prune_rings(run: Path, *, keep: int = KEEP_RINGS) -> list[int]:
     """Drop committed rings older than the last ``keep``. Returns what it removed.
 
     Only ever runs behind ``LATEST``, and never touches the committed iteration
     itself, so it is safe to re-run and safe to interrupt.
+
+    **Registration pins against pruning.** Anything ANCHORS names is
+    retention-exempt, enforced here rather than by anyone remembering. This
+    closes *cited-and-pruned*: `state-4.json` was cited by `REHEARSAL-m1.md` and
+    deleted by this function, and neither was wrong — the retention policy simply
+    **outranked a citation it could not see**. With the exemption, that outcome
+    is impossible for anything registered; for anything unregistered it is the
+    F-40 backlog's problem, not a separate class.
     """
     committed = latest_committed(run)
     if committed is None:
@@ -149,11 +177,27 @@ def prune_rings(run: Path, *, keep: int = KEEP_RINGS) -> list[int]:
         for p in run.glob("ring-*")
         if p.name.removeprefix("ring-").isdigit()
     )
+    pinned = _registered(run)
     doomed = [n for n in indices if n <= committed][:-keep] if keep else []
+    removed = []
     for n in doomed:
-        shutil.rmtree(run / f"ring-{n}", ignore_errors=True)
-        (run / f"state-{n}.json").unlink(missing_ok=True)
-    return doomed
+        if _pins(pinned, f"ring-{n}", f"state-{n}.json"):
+            continue  # registered: retention does not outrank the register
+        ring, state = run / f"ring-{n}", run / f"state-{n}.json"
+        shutil.rmtree(ring, ignore_errors=True)
+        state.unlink(missing_ok=True)
+        removed.append(n)
+    return removed
+
+
+def _pins(pinned: set[str], *rels: str) -> bool:
+    """Does ANCHORS name any of ``rels``, or anything inside them?
+
+    A ring is a directory, so a pin on one file inside it pins the ring: losing
+    ``ring-4/tokens.bin`` to retention would break the digest just as surely as
+    losing the directory.
+    """
+    return any(rel in pinned or any(p.startswith(f"{rel}/") for p in pinned) for rel in rels)
 
 
 def resume(run: Path, cfg: Config) -> tuple[int, ReplayRing | None, RunState | None]:

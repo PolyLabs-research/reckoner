@@ -373,6 +373,21 @@ class CampaignConfig:
     intra_op_threads: int = 8
     interop_threads: int = 32
 
+    # DEVICE IS FINGERPRINTED (ruled 2026-08-22, after F-51).
+    #
+    # M1 ran on a `+cpu` wheel for 9.6 hours and nobody could state that for two
+    # days. The 62-field census covers config; the recording contract covers
+    # artifacts; NOTHING covered the execution environment — so the one variable
+    # that silently rescales every wall-clock number in the record was the one
+    # variable no gate could see.
+    #
+    # Moving to a GPU build changes numerics (MCTS over a small net is exactly
+    # where reduction-order differences show), so it is a treatment applied
+    # mid-campaign, and it lands under the same rule as any fingerprinted change:
+    # amendment, not convenience. Fingerprinting it is what makes that rule
+    # enforceable rather than aspirational.
+    device: str = "cpu"
+
 
 @dataclass
 class Config:
