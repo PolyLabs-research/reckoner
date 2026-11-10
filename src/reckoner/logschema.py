@@ -52,10 +52,23 @@ ROLES = frozenset(
 )
 
 
-#: Current schema era. Bumped whenever a field is ADDED or a pinned binning
-#: CHANGES. A row records the era it was written under, which is what lets a
-#: reader distinguish "this run predates the column" from "this run dropped it".
-SCHEMA_ERA = 3
+#: Why an era-3 row's ``entropy_target_*`` is not this column's quantity (F-42).
+_F42_TARGET_REDEFINED = (
+    "before schema_era 4 this held H of the Sequential-Halving visit share — a "
+    "function of the visited count alone (F-42) — not of π′"
+)
+
+#: Current schema era. Bumped whenever a field is ADDED, a pinned binning
+#: CHANGES, or a column's DEFINITION changes — the column then moves its
+#: ``since`` and states why in ``since_reason`` (F-42: a redefinition is an era
+#: boundary, the lesson F-41 taught the ring). A row records the era it was
+#: written under, which is what lets a reader distinguish "this run predates the
+#: column" from "this run dropped it" — and "this value meant something else".
+#:
+#: 4 (F-42): ``entropy_target_*`` redefined from H(visit share) to H(π′);
+#: ``entropy_visits_*``, ``kl_improved_prior_*`` and ``ring_improved_truncated``
+#: added.
+SCHEMA_ERA = 4
 
 #: Bins for ``steps_minus_par_histogram``, **pinned here and versioned with the
 #: schema — never in config.** A histogram whose bins moved is two instruments
@@ -108,6 +121,10 @@ class Field:
     #: by the row, because a row written before a field existed cannot have
     #: explained the absence of something nobody had named yet.
     since: int = 1
+    #: Why rows before ``since`` cannot be read as this column, when "the column
+    #: did not exist yet" would be false: a column REDEFINED in place existed
+    #: before, under another meaning, and its old values are not this quantity.
+    since_reason: str | None = None
 
     def __post_init__(self) -> None:
         if self.role not in ROLES:
@@ -213,15 +230,53 @@ ITERATION_FIELDS: tuple[Field, ...] = (
         "entropy_target_step1_start",
         float,
         "diagnostic",
-        "H of the **search-improved** target at step 1 on start states. Prior "
+        "H of the **search-improved** target π′ at step 1 on start states. Prior "
         "and target must both be logged: the chess lesson is that prior entropy "
-        "alone cannot distinguish a confident policy from a collapsed one.",
+        "alone cannot distinguish a confident policy from a collapsed one. Equal "
+        "to H(prior) exactly where search found nothing — read it beside "
+        "kl_improved_prior_step1_start, which is zero there and only there.",
+        since=4,
+        since_reason=_F42_TARGET_REDEFINED,
     ),
     Field(
         "entropy_target_step1_reached",
         float,
         "diagnostic",
-        "H of the search-improved target at step 1 on reached states.",
+        "H of the search-improved target π′ at step 1 on reached states.",
+        since=4,
+        since_reason=_F42_TARGET_REDEFINED,
+    ),
+    Field(
+        "entropy_visits_step1_start",
+        float,
+        "diagnostic",
+        "H of the Sequential-Halving visit share at step 1 on start states — the "
+        "'visits' control arm's target, and the quantity entropy_target_* held "
+        "before era 4. A function of the visited count alone (F-42).",
+        since=4,
+    ),
+    Field(
+        "entropy_visits_step1_reached",
+        float,
+        "diagnostic",
+        "H of the visit share at step 1 on reached states (see the start column).",
+        since=4,
+    ),
+    Field(
+        "kl_improved_prior_step1_start",
+        float,
+        "diagnostic",
+        "Mean KL(π′ ‖ prior) in nats at step 1 on start states. Zero exactly where "
+        "search found nothing to improve on, so it is the policy-signal instrument "
+        "that still moves while the value head is silent (F-42).",
+        since=4,
+    ),
+    Field(
+        "kl_improved_prior_step1_reached",
+        float,
+        "diagnostic",
+        "Mean KL(π′ ‖ prior) at step 1 on reached states.",
+        since=4,
     ),
     # --- counters ---------------------------------------------------------
     Field("episodes", int, "counter", "Episodes completed this iteration."),
@@ -292,6 +347,18 @@ ITERATION_FIELDS: tuple[Field, ...] = (
         int,
         "health",
         "Counted terminal losses from encode overflow. Never cropped (chunk 6).",
+    ),
+    Field(
+        "ring_improved_truncated",
+        int,
+        "health",
+        "Ring records whose π′ dropped more than IMPROVED_TAIL_TOL beyond the "
+        "stored slots. They sit out of policy training under 'improved' — counted, "
+        "never cropped (F-42).",
+        zero_class="premise",
+        zero_premises="every ring record's root had at most IMPROVED_SLOTS = 128 legal "
+        "actions, or the π′ mass beyond the stored slots was at most IMPROVED_TAIL_TOL",
+        since=4,
     ),
     Field("nan_skips", int, "health", "Optimiser steps skipped on non-finite gradients."),
     Field(

@@ -12,7 +12,7 @@ finding):
    is proven and the cause is named.
 
 The measured quantity is exactly the row's: ``entropy(result.root_priors)``,
-the float-derived column that varied. ``improved_policy()`` — visit counts,
+the float-derived column that varied. ``visit_share()`` (then ``improved_policy()``) — visit counts,
 integers — did not vary, which is the asymmetry this probe is chasing.
 """
 

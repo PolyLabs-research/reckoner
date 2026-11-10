@@ -44,7 +44,18 @@ def a_record(par: int) -> dict:
         "steps_remaining": 1,
         "depth": par,
         "goal": 16,
+        **_improved(),
     }
+
+
+def _improved() -> dict:
+    """A format-3 record's π′ fields, two actions, nothing dropped."""
+    from reckoner.replay import IMPROVED_SLOTS
+
+    actions = np.zeros(IMPROVED_SLOTS, dtype=np.int32)
+    probs = np.zeros(IMPROVED_SLOTS, dtype=np.float32)
+    actions[:2], probs[:2] = (5, 9), (0.75, 0.25)
+    return {"improved_actions": actions, "improved_probs": probs, "improved_tail": 0.0}
 
 
 class Harness:
@@ -472,3 +483,18 @@ def test_the_launcher_refuses_before_it_overwrites_the_summary(tmp_path: Path, m
     with pytest.raises(ResumeError, match="F-41"):
         launcher.main()
     assert summary.read_text() == '{"status": "complete"}\n'
+
+
+def test_resume_refuses_a_ring_from_before_pi_prime_under_either_arm(tmp_path: Path) -> None:
+    """F-42: a format-2 ring carries no π′. Resuming it would join two policy
+    targets in one run, under either arm, so the read-only door refuses —
+    without reading train.policy_target."""
+    from reckoner.replay import NO_IMPROVED_TARGET
+    from reckoner.resume import check_resumable
+
+    ring = ReplayRing(8, CFG, ring_format=2)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    with pytest.raises(ResumeError, match="F-42") as refused:
+        check_resumable(tmp_path)
+    assert NO_IMPROVED_TARGET in str(refused.value)

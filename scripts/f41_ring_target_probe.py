@@ -195,7 +195,13 @@ def end_to_end(cfg: Config, per_suite: int, seed: int) -> dict:
     for i in range(len(ring)):
         result = truth[i]
         record = ring.get(i)
-        batch = ring_batch(ring, [i], cfg)
+        # F-41 is about the VISIT fields; since F-42 the default target is π′, so
+        # the visit arm is pinned where the field exists (the probe must still run
+        # against pre-F-42 trees, whose ring_batch takes no target).
+        if hasattr(cfg.train, "policy_target"):
+            batch = ring_batch(ring, [i], cfg, target="visits")
+        else:
+            batch = ring_batch(ring, [i], cfg)
         if batch is None:
             raise RuntimeError(f"record {i} produced no batch")
         target = batch.policy_target[0]

@@ -100,6 +100,7 @@ train:
   grad_clip: 1.0          # [provisional — chunk 8]
   train_steps_per_iter: 400  # [provisional — chunk 9]
   replay_capacity: 500000    # [provisional — chunk 9]
+  policy_target: improved    # [spec §1, §5; F-42 — DECIDED 2026-11-10] improved (π′) | visits (control arm); loader rejects others
   policy_loss_weight: 1.0    # [provisional — chunk 8]
   value_loss_weight: 1.0     # [provisional — chunk 8]
   steps_loss_weight: 1.0     # [provisional — chunk 8]

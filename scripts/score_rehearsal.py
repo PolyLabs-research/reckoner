@@ -17,7 +17,12 @@ import argparse
 import json
 from pathlib import Path
 
-from reckoner.campaign import ANCHOR, CAMPAIGN_FINGERPRINT, EVAL_FINGERPRINT
+from reckoner.campaign import ANCHOR
+
+# This script scores M1's rehearsal rows, so it checks them against M1's pair,
+# not against whatever the campaign door pins today (F-42 moved that).
+from reckoner.campaign import M1_CAMPAIGN_FINGERPRINT as CAMPAIGN_FINGERPRINT
+from reckoner.campaign import M1_EVAL_FINGERPRINT as EVAL_FINGERPRINT
 from reckoner.dataset import sha256_file
 from reckoner.logschema import ITERATION_FIELDS, alarm_census, read_rows
 

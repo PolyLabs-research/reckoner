@@ -66,7 +66,7 @@ def main() -> int:
     }
     summary_path.write_text(json.dumps(identity, indent=2, sort_keys=True) + "\n")
 
-    print(f"\n  M1 — {run_dir}")
+    print(f"\n  campaign — {run_dir}")
     print(f"  git {identity['git_sha'][:12]}  config {CAMPAIGN_FINGERPRINT[:12]}\n")
 
     started = time.perf_counter()

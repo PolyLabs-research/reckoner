@@ -767,3 +767,23 @@ campaign?"*, and its output was read as *"is this doing any work?"* — the same
 species of true-in-one-dimension claim this project has now catalogued nine
 times. The census's scope is fixed rather than footnoted: it reports
 **runtime-live** and **guard-live**, and only *neither* is a deletion candidate.
+
+---
+
+## Post-close note (2026-11-10, F-42). A note, not an amendment: M1 is closed
+
+- **M1's `entropy_target_*` columns hold H(visit share).** Since schema era 4,
+  that column holds H(π′), and the visit-share entropy moved to
+  `entropy_visits_*`. Read M1's rows by their era (3); never compare them with
+  era-4 rows under one name.
+- **§6's funnel arithmetic does not transfer.** Under π′, the target entropy
+  equals the prior's exactly wherever the search found nothing, so a
+  target-versus-prior entropy gap at iteration 0 is about zero by construction.
+- **The next campaign's PREREG re-declares the funnel.** It uses
+  `kl_improved_prior_*` (and `entropy_target_*`), each with its four-tuple:
+  floor, a null run (the uniform stub at the same budget), threshold, and
+  measured value.
+- **The campaign door no longer pins M1's pair.** Its fingerprints moved once
+  under F-42, by exactly one key, `train.policy_target`. M1's pair survives as
+  the `M1_*` literals in `campaign.py`, for the scripts that verify M1's own
+  rows.

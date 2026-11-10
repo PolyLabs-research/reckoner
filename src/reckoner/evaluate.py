@@ -60,8 +60,9 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float):
 
     ``value_scale`` comes from :func:`reckoner.valuegate.value_contribution` and is
     **0.0 while the head is untrusted** — the search reads no opinion the head has
-    not earned (F-14's noise-as-signal closure). The policy prior is unaffected:
-    it is trained on real improved-policy targets from the first iteration.
+    not earned (F-14's noise-as-signal closure). The policy prior is unaffected,
+    and it trains toward π′ from the first iteration (F-42). While the head is
+    silent, π′ moves the prior only where the search holds a proof.
     """
     # F-22. THE MODE IS A PROPERTY OF THE EVALUATOR, so it is checked here rather
     # than trusted to a `.eval()` somewhere up the call chain. The campaign ran

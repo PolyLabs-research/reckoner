@@ -438,3 +438,18 @@ def test_fingerprint_survives_a_round_trip(tmp_path: Path) -> None:
     path = str(tmp_path / "cfg.yaml")
     save_config(Config(), path)
     assert config_fingerprint(load_config(path)) == config_fingerprint(Config())
+
+
+def test_policy_target_is_validated_both_ways() -> None:
+    """F-42's key: the two named targets pass, anything else is refused by name."""
+    from dataclasses import replace
+
+    from reckoner.config import POLICY_TARGETS, validate
+
+    cfg = Config()
+    assert cfg.train.policy_target == "improved"
+    for good in POLICY_TARGETS:
+        validate(replace(cfg, train=replace(cfg.train, policy_target=good)))
+    for bad in ("visit", "Improved", "", "pi"):
+        with pytest.raises(ValueError, match="policy_target"):
+            validate(replace(cfg, train=replace(cfg.train, policy_target=bad)))

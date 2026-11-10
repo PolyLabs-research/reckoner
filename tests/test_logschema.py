@@ -56,6 +56,13 @@ def good_row(**overrides) -> dict:
         "entropy_prior_step1_reached": 1.1,
         "entropy_target_step1_start": 0.8,
         "entropy_target_step1_reached": 0.7,
+        # F-42 (era 4): the visit share's entropy under its own name, the KL that
+        # moves while the value head is silent, and the π′ truncation counter.
+        "entropy_visits_step1_start": 1.0,
+        "entropy_visits_step1_reached": 0.9,
+        "kl_improved_prior_step1_start": 0.4,
+        "kl_improved_prior_step1_reached": 0.3,
+        "ring_improved_truncated": 0,
         "episodes": 6,
         "episodes_solved": 5,
         "episodes_capped": 1,
@@ -460,3 +467,43 @@ def test_census_survives_a_round_trip_through_disk(tmp_path: Path) -> None:
     from_disk = alarm_census(read_rows(path))
     assert from_disk == {"episodes_stuck": 1}
     assert len(returned) == 1
+
+
+# ---------------------------------------------------------------------------
+# F-42: era 4 — a redefined column and its new neighbours
+# ---------------------------------------------------------------------------
+
+
+def test_an_era_4_row_requires_the_f42_columns() -> None:
+    row = good_row()
+    del row["kl_improved_prior_step1_start"]
+    with pytest.raises(SchemaError, match="kl_improved_prior_step1_start"):
+        validate_row(row)
+
+
+def test_an_era_3_row_validates_without_them() -> None:
+    """The other polarity: M1's committed rows predate the columns, and their
+    absence is computed from the era rather than asserted by the row."""
+    row = good_row(schema_era=3)
+    for name in (
+        "entropy_visits_step1_start",
+        "entropy_visits_step1_reached",
+        "kl_improved_prior_step1_start",
+        "kl_improved_prior_step1_reached",
+        "ring_improved_truncated",
+    ):
+        del row[name]
+    assert validate_row(row) == []
+
+
+def test_the_redefined_target_entropy_says_what_it_used_to_mean() -> None:
+    """A column redefined in place carries the reason its older values are not
+    its quantity; "it did not exist yet" would be false (F-42)."""
+    spec = field_map()["entropy_target_step1_start"]
+    assert spec.since == 4 == SCHEMA_ERA
+    assert spec.since_reason is not None and "visit share" in spec.since_reason
+
+
+def test_a_nonzero_truncation_count_writes_and_alarms() -> None:
+    alarms = validate_row(good_row(ring_improved_truncated=3))
+    assert any(a["field"] == "ring_improved_truncated" and a["value"] == 3 for a in alarms)

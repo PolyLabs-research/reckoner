@@ -77,7 +77,16 @@ from reckoner.vocab import VOCAB_VERSION
 REPO = Path(__file__).resolve().parents[2]
 SUITES = REPO / "runs" / "suites"
 
-# --- the two fingerprints, recorded in PREREG-m1 §M1-A2 §1, MOVED by M1-A4 ----
+# --- the two fingerprints. MOVED ONCE by F-42 (2026-11-10) -------------------
+# F-42 added `train.policy_target` at 'improved' (the Gumbel π′ target); no other
+# field moved, and a test proves it: deleting that one key from today's config
+# recovers M1's pair exactly. REGISTERED BY NO PREREG YET — M1 is closed, and the
+# next campaign's PREREG records this pair before launch.
+#
+#   M1 (closed; PREREG-m1 §M1-A2 §1, moved by M1-A4):
+#       8443847bb8c41218… / c8aa1fccd1c97dd8…  — kept as M1_* literals below for
+#       the scripts that verify M1's own rows.
+#
 # M1-A4 moved the campaign config ONCE, carrying every decision on that page:
 # rehearsal_frac 0.0 -> 0.65, the two `ladder.sympy_*` deletions, and three role
 # changes at unchanged value (interop EXERCISED, problems_per_pass as the
@@ -89,8 +98,13 @@ SUITES = REPO / "runs" / "suites"
 # The driver runs TWO profiles and therefore makes TWO assertions, each pinned
 # where its profile acts (D-A2 §2). A single startup check would compare one
 # profile's value against a run that also uses the other.
-CAMPAIGN_FINGERPRINT = "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d"
-EVAL_FINGERPRINT = "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10"
+CAMPAIGN_FINGERPRINT = "58fb79f9d453bace6c50cf78a6b150dd8294319897f01f8a901739211fe5023b"
+EVAL_FINGERPRINT = "88c6adab46eb29ff6978fe9365f560871d701063516359570d29831c8903425f"
+
+#: M1's registered pair (PREREG-m1, moved by M1-A4; REHEARSAL-m1-attempt2.md).
+#: Literals, never recomputed: no dataclass can represent M1's config any more.
+M1_CAMPAIGN_FINGERPRINT = "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d"
+M1_EVAL_FINGERPRINT = "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10"
 
 #: PREREG-m1 §4: both indistinguishability floors, on the 1,200-problem instrument.
 NO_REGRESS = {48: 1188, 1: 1167}
@@ -215,7 +229,7 @@ def assert_campaign_profile(cfg: Config) -> str:
     got = config_fingerprint(cfg)
     if got != CAMPAIGN_FINGERPRINT:
         raise CampaignRefusal(
-            f"campaign config fingerprint {got} != PREREG-m1's recorded "
+            f"campaign config fingerprint {got} != the registered "
             f"{CAMPAIGN_FINGERPRINT}. This config is not the one the campaign was "
             "registered against, so the run would not be the registered run."
         )
@@ -257,7 +271,7 @@ def assert_eval_profile(cfg: Config) -> str:
     got = config_fingerprint(ev)
     if campaign and got != EVAL_FINGERPRINT:
         raise CampaignRefusal(
-            f"eval profile fingerprint {got} != PREREG-m1's recorded "
+            f"eval profile fingerprint {got} != the registered "
             f"{EVAL_FINGERPRINT}; this pass is not comparable to its baseline."
         )
     return got

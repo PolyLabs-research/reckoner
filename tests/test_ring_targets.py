@@ -29,7 +29,7 @@ from reckoner import runner
 from reckoner.config import Config
 from reckoner.generator import emit, label
 from reckoner.model import N_RULES, IllegalTargetError, StateTooLarge, action_index, encode
-from reckoner.replay import ReplayRing
+from reckoner.replay import VISIT_SLOTS, ReplayRing
 from reckoner.search import SearchResult, uniform_stub
 from reckoner.train import ring_batch
 
@@ -127,7 +127,7 @@ def test_every_ring_target_is_the_search_distribution_in_action_coordinates(monk
     discriminating = 0
     for i in range(len(ring)):
         result = truth[i]
-        batch = ring_batch(ring, [i], CFG)
+        batch = ring_batch(ring, [i], CFG, target="visits")
         assert batch is not None and batch.skipped == 0
         assert torch.equal(batch.policy_target[0], expected_target(result, width)), f"record {i}"
 
@@ -142,14 +142,15 @@ def test_every_ring_target_is_the_search_distribution_in_action_coordinates(monk
 
 
 def test_every_ring_target_is_entirely_legal(monkeypatch) -> None:
-    """No stored visit mass lands outside the legal set, so none can be dropped."""
+    """No stored target mass lands outside the legal set, under either arm."""
     ring, _truth = ring_with_truth(monkeypatch)
-    batch = ring_batch(ring, list(range(len(ring))), CFG)
-    assert batch is not None
-    off_legal = batch.policy_target * (~batch.legal_mask)
-    assert float(off_legal.sum()) == 0.0
-    sums = batch.policy_target.sum(-1)
-    assert torch.allclose(sums, torch.ones_like(sums))
+    for target in ("visits", "improved"):
+        batch = ring_batch(ring, list(range(len(ring))), CFG, target=target)
+        assert batch is not None and batch.truncated == 0
+        off_legal = batch.policy_target * (~batch.legal_mask)
+        assert float(off_legal.sum()) == 0.0, target
+        sums = batch.policy_target.sum(-1)
+        assert torch.allclose(sums, torch.ones_like(sums)), target
 
 
 def test_the_slot_reading_is_refused_by_the_loss_not_absorbed(monkeypatch) -> None:
@@ -227,3 +228,133 @@ def test_train_on_ring_trains_every_step_on_a_current_ring(monkeypatch) -> None:
     assert policy_head and any(
         not torch.equal(model.state_dict()[k], before[k]) for k in policy_head
     )
+
+
+# ---------------------------------------------------------------------------
+# F-42: the 'improved' arm trains the producer's own π′, exactly
+# ---------------------------------------------------------------------------
+
+
+def _scatter_improved(result: SearchResult) -> torch.Tensor:
+    dense = torch.zeros(N_RULES * MAX_SITES)
+    for slot, p in enumerate(result.improved):
+        if p > 0:
+            dense[action_index(*result.actions[slot], MAX_SITES)] = float(p)
+    return dense
+
+
+def test_every_improved_target_is_the_producers_pi_prime_in_action_coordinates(
+    monkeypatch,
+) -> None:
+    """F-41's rule applied to F-42: writer and reader on the real path, scored
+    against ground truth captured from the producer. Bit-exact float32: the ring
+    stores π′'s values unrenormalised and the reader scatters them unchanged."""
+    ring, truth = ring_with_truth(monkeypatch)
+    widths = []
+    for i in range(len(ring)):
+        result = truth[i]
+        widths.append(len(result.actions))
+        batch = ring_batch(ring, [i], CFG, target="improved")
+        assert batch is not None and batch.skipped == 0 and batch.truncated == 0
+        assert torch.equal(batch.policy_target[0], _scatter_improved(result)), f"record {i}"
+    assert len(ring) >= 20 and max(widths) > VISIT_SLOTS, (
+        f"coverage: {len(ring)} records, widest root {max(widths)} legal actions — the "
+        "fixture must include roots wider than the visit layout, or π′'s extra width "
+        "is untested"
+    )
+
+
+def test_policy_target_is_one_lever(monkeypatch) -> None:
+    """The two arms read the same ring and differ in the policy target ONLY:
+    tokens, legality, value labels and steps targets are identical, and the
+    policy targets differ on most rows. Behavioural liveness for the key — the
+    census cannot vouch for it (a bare-name collision with Batch.policy_target)."""
+    ring, _truth = ring_with_truth(monkeypatch)
+    rows = list(range(len(ring)))
+    visits = ring_batch(ring, rows, CFG, target="visits")
+    improved = ring_batch(ring, rows, CFG, target="improved")
+    assert visits is not None and improved is not None
+    for name in ("tokens", "site_positions", "legal_mask", "z_class", "root_q", "steps_target"):
+        assert torch.equal(getattr(visits, name), getattr(improved, name)), name
+    assert visits.skipped == improved.skipped
+    differing = int((visits.policy_target != improved.policy_target).any(-1).sum())
+    assert differing >= 0.5 * len(rows), f"only {differing}/{len(rows)} rows differ"
+
+
+def _wide_problem():
+    """A SOLVE state with 132 legal actions — wider than the ring's 128 π′ slots
+    — that still encodes (131 sites). Constructed, so the cropped path is tested
+    for real rather than skipped."""
+    from reckoner.episode import Problem
+    from reckoner.expr import add, eq, mul, num, var
+    from reckoner.vocab import GOAL_SOLVE, VAR_X
+
+    x = var(VAR_X)
+    expr = eq(
+        add(*[mul(num(i + 2), x) for i in range(32)], *[num(i + 1) for i in range(32)]), num(5)
+    )
+    return Problem(goal=GOAL_SOLVE, expr=expr, par=4, target=VAR_X, par_source="pool")
+
+
+def test_a_root_wider_than_the_ring_is_counted_and_sits_out_never_cropped() -> None:
+    from reckoner.replay import IMPROVED_SLOTS
+    from reckoner.rules import legal_actions
+
+    problem = _wide_problem()
+    assert len(legal_actions(problem.expr)) > IMPROVED_SLOTS
+    encode(problem, problem.expr, CFG)  # must encode: fails, not skips, if it stops
+    # A flat prior spreads π′ over every action, so the dropped tail is large.
+    ring = ReplayRing(256, CFG)
+    stats = runner.run_iteration([problem], uniform_stub(CFG), CFG, ring, sims=16, seed=0)
+    assert stats.ring_improved_truncated >= 1
+    wide = [i for i in range(len(ring)) if ring.get(i)["improved_tail"] > 1e-6]
+    assert wide, "no record carried a dropped tail"
+    batch = ring_batch(ring, wide, CFG, target="improved")
+    assert batch is None or batch.truncated == len(wide)
+    visit_batch = ring_batch(ring, wide, CFG, target="visits")
+    assert visit_batch is not None and visit_batch.truncated == 0
+
+
+def test_train_on_ring_refuses_a_pre_pi_prime_ring_under_improved(monkeypatch) -> None:
+    """A format-2 ring has no π′: under 'improved' every row would sit out and
+    the run would train nothing in silence. Refused before any RNG is drawn."""
+    from reckoner.model import Reckoner
+    from reckoner.replay import RingError
+    from reckoner.train import train_on_ring
+
+    ring, _truth = ring_with_truth(monkeypatch, ring_format=2)
+    cfg = _ring_only_cfg()
+    torch.manual_seed(123)
+    model = Reckoner(cfg)
+    state = torch.random.get_rng_state()
+    with pytest.raises(RingError, match="F-42"):
+        train_on_ring(model, ring, cfg, steps=2, seed=0)
+    assert torch.equal(torch.random.get_rng_state(), state), "the refusal drew from the RNG"
+
+
+def test_the_visits_arm_trains_on_a_pre_pi_prime_ring(monkeypatch) -> None:
+    """The other polarity: the control arm reads the visit fields, which a
+    format-2 ring has, and trains exactly as before."""
+    from dataclasses import replace
+
+    from reckoner.model import Reckoner
+    from reckoner.train import train_on_ring
+
+    ring, _truth = ring_with_truth(monkeypatch, ring_format=2)
+    cfg = _ring_only_cfg()
+    cfg = replace(cfg, train=replace(cfg.train, policy_target="visits"))
+    torch.manual_seed(0)
+    stats = train_on_ring(Reckoner(cfg), ring, cfg, steps=2, seed=0)
+    assert stats.steps == 2
+
+
+def test_a_corrupted_pi_prime_row_is_refused_on_the_read_path(monkeypatch) -> None:
+    """The writer checks the mass; a row that fails it on the way back in was
+    corrupted after writing and must raise, not train."""
+    from reckoner.replay import RingError
+
+    ring, _truth = ring_with_truth(monkeypatch)
+    ring_batch(ring, [0], CFG, target="improved")  # intact: passes
+    ring.improved_probs[0, 0] += 0.5
+    with pytest.raises(RingError, match="not 1"):
+        ring_batch(ring, [0], CFG, target="improved")

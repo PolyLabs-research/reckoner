@@ -53,7 +53,7 @@ from reckoner.episode import Problem, encode_state, verify
 from reckoner.expr import Expr
 from reckoner.logschema import STEPS_MINUS_PAR_BINS
 from reckoner.model import StateTooLarge, action_index, encode
-from reckoner.replay import ReplayRing
+from reckoner.replay import IMPROVED_TAIL_TOL, ReplayRing
 from reckoner.rules import apply, legal_actions
 from reckoner.search import Evaluator, SearchResult, run_batched
 
@@ -65,6 +65,25 @@ def entropy(distribution: np.ndarray) -> float:
     if p.size == 0:
         return 0.0
     return float(-np.sum(p * np.log(p)))
+
+
+def kl_divergence(p: np.ndarray, q: np.ndarray) -> float:
+    """KL(p ‖ q) in nats, float64. Terms with p == 0 contribute 0.
+
+    The instrument that moves while the value head is silent (F-42): π′ equals
+    the prior exactly where search found nothing, so H(π′) and H(prior) agree
+    there and only a divergence can tell a root that taught something from one
+    that did not. Raises on a non-finite result rather than logging one: p > 0
+    where q == 0 means the target named an action the prior had no mass on.
+    """
+    p = np.asarray(p, dtype=np.float64)
+    q = np.asarray(q, dtype=np.float64)
+    support = p > 0.0
+    with np.errstate(divide="ignore"):
+        value = float(np.sum(p[support] * (np.log(p[support]) - np.log(q[support]))))
+    if not np.isfinite(value):
+        raise ValueError(f"KL(π′ ‖ prior) is {value}: π′ has mass where the prior has none")
+    return max(0.0, value)
 
 
 @dataclass
@@ -101,6 +120,16 @@ class IterationStats:
     h_prior_reached: list[float] = field(default_factory=list)
     h_target_start: list[float] = field(default_factory=list)
     h_target_reached: list[float] = field(default_factory=list)
+    # F-42: H(π′) is the target entropy; the visit-share entropy that column held
+    # before is kept under its own name, and KL(π′ ‖ prior) is the instrument
+    # that can tell an informative target from the prior when the entropies tie.
+    h_visits_start: list[float] = field(default_factory=list)
+    h_visits_reached: list[float] = field(default_factory=list)
+    kl_start: list[float] = field(default_factory=list)
+    kl_reached: list[float] = field(default_factory=list)
+    #: Ring records whose π′ dropped more than IMPROVED_TAIL_TOL beyond the
+    #: stored slots (F-42). Premise-zero: they sit out of policy training.
+    ring_improved_truncated: int = 0
     seconds: float = 0.0
 
     @property
@@ -142,7 +171,15 @@ class IterationStats:
         iteration with no reached states has no reached entropy. The runner
         surfaces the population sizes beside it so the row's reader can tell.
         """
+
+        def mean(values: list[float]) -> float:
+            return round(fmean(values), 6) if values else 0.0
+
         return {
+            "entropy_visits_step1_start": mean(self.h_visits_start),
+            "entropy_visits_step1_reached": mean(self.h_visits_reached),
+            "kl_improved_prior_step1_start": mean(self.kl_start),
+            "kl_improved_prior_step1_reached": mean(self.kl_reached),
             "entropy_prior_step1_start": round(fmean(self.h_prior_start), 6)
             if self.h_prior_start
             else 0.0,
@@ -175,13 +212,23 @@ def _record(stats: IterationStats, result: SearchResult, live: _Live) -> None:
     stats.step_cap_reached += s.step_cap_reached
 
     h_prior = entropy(result.root_priors)
-    h_target = entropy(result.improved_policy())
+    h_target = entropy(result.improved)
+    h_visits = entropy(result.visit_share())
+    # Compared at the TARGET's precision: π′ is stored float32, and where it is
+    # the prior both come from the identical float64 softmax, so the float32
+    # values agree exactly and the divergence is exactly 0 — not float noise.
+    prior32 = np.asarray(result.root_priors, dtype=np.float32)
+    kl = kl_divergence(result.improved, prior32) if len(result.actions) else 0.0
     if live.steps == 0:
         stats.h_prior_start.append(h_prior)
         stats.h_target_start.append(h_target)
+        stats.h_visits_start.append(h_visits)
+        stats.kl_start.append(kl)
     else:
         stats.h_prior_reached.append(h_prior)
         stats.h_target_reached.append(h_target)
+        stats.h_visits_reached.append(h_visits)
+        stats.kl_reached.append(kl)
 
 
 def run_iteration(
@@ -284,12 +331,42 @@ def ring_visits(result: SearchResult, width: int, max_sites: int) -> tuple[np.nd
     and the policy loss dropped it without a sound, for all of M1.
     """
     order = np.argsort(-result.visits)[:width]
-    actions = np.fromiter(
-        (action_index(*result.actions[int(slot)], max_sites) for slot in order),
+    return _dense_actions(result.actions, order, max_sites), result.visits[order].astype(np.int32)
+
+
+def _dense_actions(actions: list[tuple[int, int]], slots: np.ndarray, max_sites: int) -> np.ndarray:
+    """Root slots → dense action indices. **The one conversion** (F-41's rule)."""
+    return np.fromiter(
+        (action_index(*actions[int(slot)], max_sites) for slot in slots),
         dtype=np.int32,
-        count=len(order),
+        count=len(slots),
     )
-    return actions, result.visits[order].astype(np.int32)
+
+
+def ring_improved(
+    result: SearchResult, width: int, max_sites: int
+) -> tuple[np.ndarray, np.ndarray, float]:
+    """π′'s top-``width`` actions as ``(dense indices, probs, tail)`` (F-42).
+
+    Sorted by mass, ties by slot (stable), padded with action 0 / mass 0.0. The
+    tail is the float64 sum of the π′ entries NOT stored — exactly 0.0 whenever
+    the root has at most ``width`` legal actions — so a reader can always tell a
+    complete target from a cropped one, and never has to guess.
+    """
+    pi = np.asarray(result.improved)
+    if len(pi) != len(result.actions):
+        raise ValueError(
+            f"π′ has {len(pi)} entries for {len(result.actions)} root actions; it must "
+            "be aligned with them slot for slot"
+        )
+    order = np.argsort(-pi, kind="stable")
+    kept = order[:width]
+    actions = np.zeros(width, dtype=np.int32)
+    probs = np.zeros(width, dtype=np.float32)
+    actions[: len(kept)] = _dense_actions(result.actions, kept, max_sites)
+    probs[: len(kept)] = pi[kept]
+    tail = float(pi[order[width:]].astype(np.float64).sum())
+    return actions, probs, tail
 
 
 def _settle(
@@ -331,6 +408,13 @@ def _settle(
         visit_actions, visit_counts = ring_visits(
             result, ring.visit_actions.shape[1], cfg.model.max_sites
         )
+        # Both targets, always: the ring serves either arm of train.policy_target
+        # (F-42), and this writer reads no training config.
+        improved_actions, improved_probs, improved_tail = ring_improved(
+            result, ring.improved_actions.shape[1], cfg.model.max_sites
+        )
+        if improved_tail > IMPROVED_TAIL_TOL:
+            stats.ring_improved_truncated += 1
         ring.append(
             tokens=seq,
             site_positions=np.asarray(encoded.site_positions[: encoded.n_sites], dtype=np.int16),
@@ -343,6 +427,9 @@ def _settle(
             steps_remaining=max(0, e.steps - steps),
             depth=par,
             goal=e.problem.goal,
+            improved_actions=improved_actions,
+            improved_probs=improved_probs,
+            improved_tail=improved_tail,
         )
 
 
@@ -404,6 +491,7 @@ def iteration_row(
         "search_evaluations_total": stats.evaluations,
         "terminal_no_actions": stats.terminal_no_actions,
         "state_too_large": stats.state_too_large,
+        "ring_improved_truncated": stats.ring_improved_truncated,
         "nan_skips": 0,
         "pool_refusals": 0,
         "seconds_self_play": stats.seconds,
@@ -414,4 +502,12 @@ def iteration_row(
     }
 
 
-__all__ = ["IterationStats", "entropy", "iteration_row", "run_iteration"]
+__all__ = [
+    "IterationStats",
+    "entropy",
+    "iteration_row",
+    "kl_divergence",
+    "ring_improved",
+    "ring_visits",
+    "run_iteration",
+]

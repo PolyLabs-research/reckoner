@@ -15,8 +15,12 @@ Targets, per the chunk-8 brief:
 
 The single-BFS-path caveat is recorded in the dataset's own meta: where several
 optimal derivations exist, the network is taught the one BFS reached first.
-Phase 2's improved-policy targets are visit distributions over the whole legal
-set and wash it out.
+This module once said Phase 2's targets "wash it out". Under F-41 they could not
+(the ring trained the wrong coordinates). Under F-42 the target is π′, which
+departs from the prior only where the search holds evidence, so it washes the
+tie-break out only where proofs reach it. With rehearsal at 0.65 the supervised
+one-hot is still most of every batch. Whether the imprint survives is measured,
+not assumed (TAZ comparison, E-02/F-03).
 """
 
 from __future__ import annotations
@@ -55,6 +59,18 @@ class Batch:
     #: root_q. Absent for Phase-1 batches, where z is degenerate by construction.
     z_class: torch.Tensor | None = None
     root_q: torch.Tensor | None = None
+    #: Phase-2 'improved' only: rows that sat out because their π′ dropped more
+    #: than IMPROVED_TAIL_TOL beyond the ring's slots (F-42). Kept apart from
+    #: ``skipped``, which counts encode and era sit-outs.
+    truncated: int = 0
+
+
+#: The ring fields each policy target is built from (F-42). The keys are exactly
+#: ``config.POLICY_TARGETS``, and a test pins that.
+TARGET_FIELDS: dict[str, tuple[str, ...]] = {
+    "improved": ("improved_actions", "improved_probs", "improved_tail"),
+    "visits": ("visit_actions", "visit_counts"),
+}
 
 
 @dataclass
@@ -67,6 +83,10 @@ class TrainStats:
     #: ``rehearsal_frac = 0.0``, and that zero is the inertness claim made
     #: countable rather than asserted.
     rehearsal_batches: int = 0
+    #: Ring rows that sat out under 'improved' because their π′ was cropped by
+    #: the ring's slots (F-42). The write-side counter in the iteration row is
+    #: the logged instrument; this is the train side's own count of the same.
+    improved_truncated: int = 0
     losses: list[float] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -76,6 +96,7 @@ class TrainStats:
             "rehearsal_batches": self.rehearsal_batches,
             "nan_skips": self.nan_skips,
             "encode_skips": self.encode_skips,
+            "improved_truncated": self.improved_truncated,
             "final_loss": self.losses[-1] if self.losses else None,
         }
 
@@ -206,31 +227,57 @@ def make_batch(data: SupervisionSet, indices: list[int], cfg: Config) -> Batch:
 Z_TO_CLASS = {1: 0, 0: 1, -1: 2}
 
 
-def ring_batch(ring, indices: list[int], cfg: Config) -> Batch | None:
+def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = None) -> Batch | None:
     """Turn stored steps into a trainable batch. Legality is re-derived, never stored.
 
-    The visit vector was stored **sparsely** (top-m actions and counts); it is
-    re-expanded here into the dense action layout the policy head emits, so the
-    ring stays small and the loss still sees a distribution.
+    **The policy target is ``train.policy_target`` (F-42)**, or ``target`` when a
+    caller must pin one (the value switch pins ``'visits'`` so the policy lever
+    cannot move its population):
 
-    ``visit_actions`` are dense action indices, written by
-    ``runner.ring_visits``. Records from ring_format 1 hold root slot positions
-    there (F-41); the ring reports them era-absent and they sit out here rather
-    than training the cells their slot numbers happen to name.
+    * ``'improved'`` — the Gumbel π′ the search stored, top ``IMPROVED_SLOTS`` by
+      mass in dense action coordinates. A row whose dropped mass exceeds
+      ``IMPROVED_TAIL_TOL`` sits out, counted in ``truncated``; it is never
+      cropped and never renormalised. A row whose stored mass and tail do not
+      sum to one is refused: that is a broken writer, not a row.
+    * ``'visits'`` — the Sequential-Halving visit share, exactly as before F-42:
+      the control arm.
+
+    Both are stored **sparsely** and re-expanded into the dense layout the policy
+    head emits. ``visit_actions`` are dense action indices (``runner.ring_visits``);
+    records from ring_format 1 hold root slot positions there (F-41) and sit out.
     """
     from reckoner.absence import Absent
+    from reckoner.replay import IMPROVED_MASS_TOL, IMPROVED_TAIL_TOL, RingError
+
+    target = cfg.train.policy_target if target is None else target
+    if target not in TARGET_FIELDS:
+        raise ValueError(f"policy target {target!r} is not one of {sorted(TARGET_FIELDS)}")
 
     tokens, positions, masks, targets, steps, depths, zs, qs = [], [], [], [], [], [], [], []
     skipped = 0
-    needed = ("tokens", "visit_actions", "visit_counts", "root_q", "z")
+    truncated = 0
+    needed = ("tokens", *TARGET_FIELDS[target], "root_q", "z")
     for i in indices:
         record = ring.get(i)
         if any(isinstance(record[k], Absent) for k in needed):
             skipped += 1  # an era-absent field is not a zero; the row sits out
             continue
-        goal, target, expr = decode_state(tuple(int(t) for t in record["tokens"]))
+        if target == "improved":
+            probs = np.asarray(record["improved_probs"], dtype=np.float64)
+            tail = float(record["improved_tail"])
+            total = float(probs.sum()) + tail
+            if abs(total - 1.0) > IMPROVED_MASS_TOL:
+                raise RingError(
+                    f"ring record {i}: π′ stored mass plus tail is {total!r}, not 1 within "
+                    f"{IMPROVED_MASS_TOL}. The writer checks this; a record that fails it "
+                    "here was corrupted after writing."
+                )
+            if tail > IMPROVED_TAIL_TOL:
+                truncated += 1  # counted, never cropped, never renormalised
+                continue
+        goal, target_var, expr = decode_state(tuple(int(t) for t in record["tokens"]))
         problem = Problem(
-            goal=goal, expr=expr, par=int(record["par"]), target=target, par_source="bfs"
+            goal=goal, expr=expr, par=int(record["par"]), target=target_var, par_source="bfs"
         )
         try:
             state = encode(problem, expr, cfg)
@@ -238,15 +285,20 @@ def ring_batch(ring, indices: list[int], cfg: Config) -> Batch | None:
             skipped += 1  # counted, never cropped
             continue
 
-        visits = np.asarray(record["visit_counts"], dtype=np.float64)
-        total = visits.sum()
-        if total <= 0:
-            skipped += 1
-            continue
         dense = torch.zeros(N_RULES * cfg.model.max_sites)
-        for action, count in zip(record["visit_actions"], visits, strict=True):
-            if count > 0:
-                dense[int(action)] = float(count / total)
+        if target == "improved":
+            for action, p in zip(record["improved_actions"], record["improved_probs"], strict=True):
+                if p > 0:
+                    dense[int(action)] = float(p)
+        else:
+            visits = np.asarray(record["visit_counts"], dtype=np.float64)
+            total = visits.sum()
+            if total <= 0:
+                skipped += 1
+                continue
+            for action, count in zip(record["visit_actions"], visits, strict=True):
+                if count > 0:
+                    dense[int(action)] = float(count / total)
 
         tokens.append(state.tokens)
         positions.append(state.site_positions)
@@ -271,6 +323,7 @@ def ring_batch(ring, indices: list[int], cfg: Config) -> Batch | None:
         solved_mask=torch.ones_like(steps_tensor, dtype=torch.bool),
         depth=torch.tensor(depths),
         skipped=skipped,
+        truncated=truncated,
     )
     batch.z_class = torch.tensor(zs, dtype=torch.long)
     batch.root_q = torch.tensor(qs, dtype=torch.float32)
@@ -308,7 +361,7 @@ def train_on_ring(
     ``encode_skips`` — a sweep arm that trained nothing, reported as a
     measurement, and blamed by its caller on whatever knob it was varying.
     """
-    from reckoner.replay import STALE_TARGETS, RingError
+    from reckoner.replay import NO_IMPROVED_TARGET, STALE_TARGETS, RingError
 
     stale = ring.era_absent("visit_actions")
     if stale:
@@ -317,6 +370,18 @@ def train_on_ring(
             "them out silently. Regenerate the ring (scripts/ring0_replay.py) or "
             "repair it before training on it."
         )
+    # F-42: under 'improved', a record from before ring_format 3 has no π′ and
+    # would sit out of every batch — the same silent zero-step run F-41's review
+    # found, one format later. Refused here, before any RNG is drawn. Under
+    # 'visits' such records train exactly as they always did.
+    if cfg.train.policy_target == "improved":
+        lacking = ring.era_absent("improved_probs")
+        if lacking:
+            raise RingError(
+                f"{lacking} of {len(ring)} ring records: {NO_IMPROVED_TARGET}. "
+                "train.policy_target is 'improved'; regenerate the ring, or train the "
+                "'visits' control arm on it."
+            )
 
     rng = random.Random(seed)
     torch.manual_seed(seed)
@@ -367,6 +432,7 @@ def train_on_ring(
             stats.encode_skips += len(indices)
             continue
         stats.encode_skips += batch.skipped
+        stats.improved_truncated += batch.truncated
 
         lr = lr_at(step, steps, cfg)
         for group in optimiser.param_groups:
