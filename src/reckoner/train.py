@@ -301,7 +301,23 @@ def train_on_ring(
     Gating both consumers by the declaration deadlocks the ratchet — no gradient,
     no accuracy, no switch, forever (`FINDINGS.md` F-15). The declaration governs
     what the search *trusts*; this governs what the head is *taught*.
+
+    **A ring holding pre-F-41 records is refused before anything runs.**
+    ``ring_batch`` sits such records out, so on an all-old ring every batch is
+    empty and this used to return ``steps == 0`` with the skips filed as
+    ``encode_skips`` — a sweep arm that trained nothing, reported as a
+    measurement, and blamed by its caller on whatever knob it was varying.
     """
+    from reckoner.replay import STALE_TARGETS, RingError
+
+    stale = ring.era_absent("visit_actions")
+    if stale:
+        raise RingError(
+            f"{stale} of {len(ring)} ring records: {STALE_TARGETS}. Training would sit "
+            "them out silently. Regenerate the ring (scripts/ring0_replay.py) or "
+            "repair it before training on it."
+        )
+
     rng = random.Random(seed)
     torch.manual_seed(seed)
     was_training = model.training

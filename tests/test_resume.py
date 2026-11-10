@@ -421,3 +421,54 @@ def test_resume_accepts_a_ring_written_in_the_current_format(tmp_path: Path) -> 
     _commit_one(tmp_path, ring)
     start, loaded, _state = resume(tmp_path, CFG)
     assert start == 1 and loaded is not None and len(loaded) == 1
+
+
+def _snapshot(run: Path) -> dict[str, bytes]:
+    return {str(p.relative_to(run)): p.read_bytes() for p in sorted(run.rglob("*")) if p.is_file()}
+
+
+def test_the_resumability_check_refuses_without_writing_anything(tmp_path: Path) -> None:
+    """``check_resumable`` exists so a launcher can refuse BEFORE its first write;
+    that only holds if the check itself touches nothing."""
+    from reckoner.resume import check_resumable
+
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    (tmp_path / "iterations.jsonl").write_text('{"iteration": 0}\n{"iteration": 1}\n')
+    before = _snapshot(tmp_path)
+    with pytest.raises(ResumeError, match="1 of 1 records"):
+        check_resumable(tmp_path)
+    assert _snapshot(tmp_path) == before
+
+
+def test_the_resumability_check_passes_a_current_or_empty_run(tmp_path: Path) -> None:
+    """The other polarity, twice: a fresh directory and a current-format ring."""
+    from reckoner.resume import check_resumable
+
+    check_resumable(tmp_path / "never-run")
+    ring = ReplayRing(8, CFG)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    check_resumable(tmp_path)
+
+
+def test_the_launcher_refuses_before_it_overwrites_the_summary(tmp_path: Path, monkeypatch) -> None:
+    """The F-41 review's ordering finding. ``scripts/campaign.py`` writes a
+    "started" stub over ``campaign_summary.json`` before calling the driver, so a
+    refusal raised inside the driver arrived after a completed run's summary was
+    already gone. The refusal has to come first."""
+    import importlib
+    import sys
+
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    summary = tmp_path / "campaign_summary.json"
+    summary.write_text('{"status": "complete"}\n')
+
+    launcher = importlib.import_module("campaign")
+    monkeypatch.setattr(sys, "argv", ["campaign.py", str(tmp_path)])
+    with pytest.raises(ResumeError, match="F-41"):
+        launcher.main()
+    assert summary.read_text() == '{"status": "complete"}\n'

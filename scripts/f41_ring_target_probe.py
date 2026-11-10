@@ -45,6 +45,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+import reckoner
 from reckoner import runner
 from reckoner.config import Config
 from reckoner.dataset import read_suite, sample_indices, suite_problem
@@ -67,14 +68,22 @@ def slot_census(cfg: Config) -> dict:
     states_all_correct = 0
     states = 0
     capped = Counter()
+    # States where NO storable slot reaches a legal cell: the whole target is
+    # dropped whatever the network or budget, because which slots get visits
+    # cannot rescue a state none of whose slot numbers is a legal cell.
+    no_legal_slot: Counter = Counter()
+    by_family: Counter = Counter()
     for path in SUITES:
+        family = "solve_in" if path.name.startswith("solve_in_") else "scripted_in"
         for row in read_suite(path):
             _goal, _target, expr = decode_state(tuple(row["tokens"]))
             actions = legal_actions(expr)
             cells = {action_index(r, s, max_sites) for r, s in actions}
             states += 1
+            by_family[family] += 1
             n_legal_hist[len(actions)] += 1
             ok = True
+            reachable = False
             for j, (r, s) in enumerate(actions):
                 kind = (
                     "correct"
@@ -84,10 +93,14 @@ def slot_census(cfg: Config) -> dict:
                 legal_cells[kind] += 1
                 if j < cfg.search.gumbel_m:
                     capped[kind] += 1
+                    reachable = reachable or kind != "dropped"
                 ok = ok and kind == "correct"
             states_all_correct += ok
+            no_legal_slot[family] += not reachable
     return {
         "states": states,
+        "states_by_family": dict(by_family),
+        "states_with_no_storable_slot_on_a_legal_cell": dict(no_legal_slot),
         "states_every_slot_correct": states_all_correct,
         "all_slots": dict(legal_cells),
         f"slots_below_m_{cfg.search.gumbel_m}": dict(capped),
@@ -173,6 +186,12 @@ def end_to_end(cfg: Config, per_suite: int, seed: int) -> dict:
     records = 0
     by_stratum: Counter = Counter()
     by_source: Counter = Counter()
+    # The pooled split mixes strata whose ring rows behave differently, so it is
+    # also published by (par source, par band). A campaign's own ring is drawn
+    # from train_100k (BFS par 1-6), and only the matching stratum stands in
+    # for it.
+    mass_by_stratum: dict[str, Counter] = {}
+    records_by_stratum: Counter = Counter()
     for i in range(len(ring)):
         result = truth[i]
         record = ring.get(i)
@@ -187,6 +206,10 @@ def end_to_end(cfg: Config, per_suite: int, seed: int) -> dict:
 
         order = np.argsort(-result.visits)[:width]
         total = float(result.visits[order].sum())
+        par = int(record["par"])
+        stratum = f"{record['par_source']}:par_{'1-6' if par <= 6 else '7-10'}"
+        records_by_stratum[stratum] += 1
+        cell = mass_by_stratum.setdefault(stratum, Counter())
         for k, slot in enumerate(order):
             count = int(result.visits[slot])
             if count == 0:
@@ -198,6 +221,7 @@ def end_to_end(cfg: Config, per_suite: int, seed: int) -> dict:
             )
             visits_n[kind] += 1
             mass[kind] += count / total
+            cell[kind] += count / total
 
         legal_mass.append(float((target * mask).sum()))
         top = int(result.visits.max())
@@ -223,6 +247,13 @@ def end_to_end(cfg: Config, per_suite: int, seed: int) -> dict:
         "argmax_is_a_max_visit_action": f"{argmax_hits}/{records}",
         "records_by_par": {str(k): v for k, v in sorted(by_stratum.items())},
         "records_by_par_source": dict(by_source),
+        "visit_mass_by_stratum": {
+            name: {
+                "records": records_by_stratum[name],
+                **{k: round(v / records_by_stratum[name], 4) for k, v in sorted(cell.items())},
+            }
+            for name, cell in sorted(mass_by_stratum.items())
+        },
     }
 
 
@@ -234,20 +265,28 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = Config()
-    sha = subprocess.run(
-        ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
-    ).stdout.strip()
-    dirty = bool(
-        subprocess.run(
-            ["git", "-C", str(REPO), "status", "--porcelain", "--untracked-files=no"],
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
+    head = subprocess.run(
+        ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True
     )
+    if head.returncode == 0:
+        sha = head.stdout.strip()
+        dirty: bool | str = bool(
+            subprocess.run(
+                ["git", "-C", str(REPO), "status", "--porcelain", "--untracked-files=no"],
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout.strip()
+        )
+    else:
+        # An exported tree (e.g. `git archive` of an older commit, to read the
+        # pre-fix writer). No checkout means no SHA to vouch for: say so, and
+        # name the source tree actually imported instead.
+        sha, dirty = "not-a-git-checkout", "unknown"
     report = {
         "git_sha": sha,
         "dirty": dirty,
+        "reckoner_source": str(Path(reckoner.__file__).resolve().parent),
         "sims": cfg.search.sims,
         "gumbel_m": cfg.search.gumbel_m,
         "dense_width": N_RULES * cfg.model.max_sites,

@@ -189,7 +189,15 @@ class RingError(ValueError):
 #: Re-exported so a reader of this module finds the absence type it returns.
 #: One implementation, in `reckoner.absence` — a second copy of an absence type
 #: is the two-implementations hazard the one-formatter law exists to prevent.
-__all__ = ["Absent", "AbsenceError", "ReplayRing", "RingError", "bytes_per_record"]
+__all__ = [
+    "STALE_TARGETS",
+    "Absent",
+    "AbsenceError",
+    "ReplayRing",
+    "RingError",
+    "bytes_per_record",
+    "era_absent_on_disk",
+]
 
 
 class ReplayRing:
@@ -478,6 +486,26 @@ class ReplayRing:
         ring.cursor = meta["cursor"]
         ring.count = meta["count"]
         return ring
+
+
+#: Why a record whose ``visit_actions`` are era-absent is never trained on or
+#: resumed into. One statement, shared by every door that refuses (F-41).
+STALE_TARGETS = (
+    "their visit_actions predate ring_format 2: they are root slot positions, not actions (F-41)"
+)
+
+
+def era_absent_on_disk(path: Path, name: str) -> tuple[int, int]:
+    """``(records predating name's meaning, valid records)`` for a SAVED ring.
+
+    Reads only ``meta.json`` and the per-record format column, so a door can
+    refuse a stale ring before loading the whole of it — and before writing
+    anything — rather than after.
+    """
+    meta = json.loads((path / "meta.json").read_text())
+    count = int(meta["count"])
+    formats = np.fromfile(path / "record_format.bin", dtype=np.int16, count=count)
+    return int(np.count_nonzero(formats < _FIELD_MAP[name].since)), count
 
 
 def bytes_per_record(cfg: Config) -> int:

@@ -1,8 +1,9 @@
 """F-41: the ring's policy target is the distribution search actually produced.
 
 The runner writes the ring and ``train.ring_batch`` reads it into the dense target
-the policy loss consumes. Nothing tested the two together, and they disagreed
-about what ``visit_actions`` holds: the runner stored root **slot** positions
+the policy loss consumes. The two ran together in tests (``a_filled_ring`` into
+``train_on_ring``), but nothing compared the target ``ring_batch`` built with the
+search that produced it — and they disagreed about what ``visit_actions`` holds: the runner stored root **slot** positions
 (indices into ``legal_actions(expr)``) and ``ring_batch`` read them as **dense
 action indices** (``rule * max_sites + site``). Slot j can only ever reach cell j,
 which is ``eval_add`` at site j, so most stored visit mass landed on illegal cells
@@ -56,9 +57,19 @@ def generated_problems() -> list:
     return problems
 
 
-def ring_with_truth(monkeypatch) -> tuple[ReplayRing, dict[int, SearchResult]]:
-    """A ring filled by the real runner, and the SearchResult behind each record."""
-    ring = ReplayRing(4096, CFG)
+def ring_with_truth(
+    monkeypatch, *, ring_format: int | None = None
+) -> tuple[ReplayRing, dict[int, SearchResult]]:
+    """A ring filled by the real runner, and the SearchResult behind each record.
+
+    ``ring_format`` stamps the records as an older writer would have, to build
+    the stale ring a pre-fix run left on disk.
+    """
+    ring = (
+        ReplayRing(4096, CFG)
+        if ring_format is None
+        else ReplayRing(4096, CFG, ring_format=ring_format)
+    )
     truth: dict[int, SearchResult] = {}
     original = runner._settle
 
@@ -170,3 +181,49 @@ def test_the_slot_reading_is_refused_by_the_loss_not_absorbed(monkeypatch) -> No
     with pytest.raises(IllegalTargetError, match="F-41"):
         policy_loss(logits, slot_targets, batch.legal_mask)
     policy_loss(logits, batch.policy_target, batch.legal_mask)  # the fixed target passes
+
+
+# ---------------------------------------------------------------------------
+# A stale ring is refused where training happens, not only at resume
+# ---------------------------------------------------------------------------
+
+
+def _ring_only_cfg() -> Config:
+    """No supervision rows, so no gitignored data: the ring is the only source."""
+    from dataclasses import replace
+
+    return replace(CFG, train=replace(CFG.train, rehearsal_frac=0.0))
+
+
+def test_train_on_ring_refuses_a_ring_holding_pre_f41_records(monkeypatch) -> None:
+    """Every record of a pre-fix ring is era-absent, so every batch was empty and
+    ``train_on_ring`` returned ``steps == 0`` without a sound — the F-41 review's
+    finding. The sweep scripts load such a ring directly, outside resume."""
+    from reckoner.model import Reckoner
+    from reckoner.replay import RingError
+    from reckoner.train import train_on_ring
+
+    ring, _truth = ring_with_truth(monkeypatch, ring_format=1)
+    assert ring.era_absent("visit_actions") == len(ring) > 0
+    torch.manual_seed(0)
+    with pytest.raises(RingError, match="F-41"):
+        train_on_ring(Reckoner(_ring_only_cfg()), ring, _ring_only_cfg(), steps=2, seed=0)
+
+
+def test_train_on_ring_trains_every_step_on_a_current_ring(monkeypatch) -> None:
+    """The other polarity: a ring written by the fixed runner trains every step,
+    skips nothing, and moves the policy head itself."""
+    from reckoner.model import Reckoner
+    from reckoner.train import train_on_ring
+
+    ring, _truth = ring_with_truth(monkeypatch)
+    cfg = _ring_only_cfg()
+    torch.manual_seed(0)
+    model = Reckoner(cfg)
+    before = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    stats = train_on_ring(model, ring, cfg, steps=2, seed=0)
+    assert stats.steps == 2 and stats.encode_skips == 0
+    policy_head = [k for k in before if k.startswith(("rule_embedding", "site_projection"))]
+    assert policy_head and any(
+        not torch.equal(model.state_dict()[k], before[k]) for k in policy_head
+    )
