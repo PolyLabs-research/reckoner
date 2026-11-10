@@ -3415,3 +3415,86 @@ refuses the old one by name.
 311,741. A campaign samples far more of them, so a raise on a supervised batch
 would be an older dataset defect surfacing, not this fix misfiring. A full-dataset
 legality pass on the box would settle it in advance.
+
+---
+
+## F-54 — The policy target was the halving schedule's shape, not the improved policy
+
+**Found:** 2026-11-10. It was a porting divergence surfaced by the
+TinyAlphaZero-v2 comparison, and F-53 carried it as "not fixed here".
+
+**Commissioned** by the principal, verbatim: *"now fix the Gumbel π' target"*. The
+rollout was then chosen from three offered options, verbatim:
+
+> *"π′ default, flag kept (Recommended)"* — *"Add train.policy_target with values
+> 'improved' (new default) and 'visits' (kept as the control arm for a later
+> A/B). default.yaml and both pinned fingerprints move once, with a dated
+> amendment explaining why. The next campaign gets π′ without further edits."*
+
+**Instrument:** `scripts/f54_policy_target_probe.py` at `0ec8e30`, clean tree,
+torch 2.13.0+cpu, `sims 48`, `gumbel_m 16`. It ran 200 frozen suite start states
+(20 per suite, via `sample_indices`) under three evaluators: the uniform stub, and a
+fixed random-init network at value contribution 0.0 and at 1.0.
+
+### The divergence
+
+**The spec promises an improved-policy target** (spec §1 thesis and §5 Phase 2).
+Gumbel MuZero's improved policy, and TinyAlphaZero-v2's training target
+(`gumbel.py:241-256`), is
+
+  π′ = softmax(logits + σ(completed Q)), over **every** legal root action,
+
+with σ(q) = (c_visit + max N) · c_scale · q.
+
+**What reckoner computes is not that.** `SearchResult.improved_policy()`
+(`search.py:106-110`) returns `visits / visits.sum()`, the Sequential-Halving visit
+share. The ring stores exactly that, and `ring_batch` expands it. It also feeds the
+`entropy_target_*` columns (`runner.py:178`), whose schema text reads "H of the
+**search-improved** target". The method's name claims the thing the spec promises;
+its body computes another.
+
+### Measured
+
+| reading | result |
+|---|---|
+| **Schedule census.** Sorted root visit profile, grouped by actions visited, over 600 roots (200 states × 3 evaluators) | **exactly one profile per group, under every evaluator**, in all 11 groups: 1 → [48], 2 → [24, 24], 3 → [32, 8, 8], 4 → [18, 18, 6, 6], 5 → [20, 19, 3, 3, 3], 6 → [26, 8, 8, 2, 2, 2], 8 → [14, 14, 6, 6, 2×4], 9 → [17, 16, 5, 5, 1×5], 12 → [19, 7, 7, 3, 3, 3, 1×6], 15 → [20, 6, 6, 2×4, 1×8], 16 → [11, 11, 5, 5, 2×4, 1×8] |
+| **Ceiling.** Largest share on one action | 32/48 = **0.667** on any multi-action root; a two-action root always teaches **24/24**. Mean top share **0.4519**, identical to four places under all three evaluators |
+| **Proven-worse mass, start states.** Roots with two visited children proven by the search's terminal oracle at different z | **0 of 600**: start states almost never hold two depth-1 proofs, so this reading is empty, not reassuring |
+| **Proven-worse mass, constructed.** All 40 five-action `solve_in_1` states, re-posed one step before the step cap with par = cap, so the solver is an exact at-par solve (z = 0) and the other four hit the cap (z = −1) | the search **chose the solver 40 / 40**. The target put **58.33% (28/48)** of its mass on proven losses **in every one**, 19/48 of it on a single losing action (visits [19, 3, 3, 3, 20]) |
+
+So the target's **shape** is fixed by the schedule and the visited count. Only
+**which action gets which share** carries information from the search, through
+Sequential Halving's ranking (logits + Gumbel + σ(q)). Nothing in the target
+records how much better an action proved: a proof of failure and a proof of
+success that both survive a halving round are taught at the same share.
+
+### What follows from it
+
+* **The target-entropy columns were mute.** `entropy_target_*` is the entropy of
+  a profile fixed by the visited-count mix. The target half of PREREG-m1 §6's
+  funnel signature could move only when that mix moved (F-53 review, A1-02).
+* **What π′ will and will not do in this domain (derived from the formula, not
+  measured).** Against exact par, an at-par solve has z = 0, and while the value
+  head is untrusted (`value_scale` 0) every unproven action also reads q = 0. So
+  π′ departs from the prior only where the search holds a proof: z = −1 (over par,
+  step cap, dead end) or z = +1 (beating non-exact par). Everywhere else π′ is the
+  prior, and the policy gradient is about zero. That is Gumbel's intended
+  behaviour, no improvement where search found none, and it replaces a target
+  that sharpened the prior toward Gumbel-perturbed halving survivors whether or
+  not the search had learned anything. Expect the policy signal to be sparse until
+  the value head goes live.
+* **M1's numbers are untouched.** They are instrument readings (F-53), and M1's
+  training targets were already compromised by F-53's coordinate defect.
+
+### The fix, as chosen
+
+- `train.policy_target` is added: `improved` is the new default (π′, as specced),
+  and `visits` is kept as the control arm for a later A/B.
+- π′ is computed at the end of the search, where the tree is available, and stored
+  in the ring.
+- `default.yaml` and both pinned fingerprints move once, with dated notes.
+- M1 is closed. The next campaign's PREREG registers the new fingerprint before
+  launch.
+
+The fix follows in later commits, tests first, and its post-fix reading is
+appended here.
