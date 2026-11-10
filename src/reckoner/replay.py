@@ -13,7 +13,9 @@ field                layout                                      bytes
 ``site_positions``   192 × int16                                     384
 ``length``           int16                                             2
 ``n_sites``          int16                                             2
-``visit_actions``    16 × int32 — the top-m root actions               64
+``visit_actions``    16 × int32 — the top-m root actions, as dense     64
+                     action indices (``rule * max_sites + site``;
+                     F-41: format 1 stored root slot positions)
 ``visit_counts``     16 × int32                                       64
 ``root_q``           float32                                           4
 ``z``                int8                                              1
@@ -43,7 +45,11 @@ this is lossless rather than lossy.
 Two era systems exist. They are not the same one
 -------------------------------------------------
 * **``RING_FORMAT`` / ``_FIELDS_SINCE`` (here)** version the *memmap record
-  layout*. A bump means a column was added to what a stored step contains.
+  layout*. A bump means a column was added to what a stored step contains — or
+  that a column's stored **meaning** changed, in which case that column's
+  ``since`` moves to the new format and records written under the old meaning
+  read as era-absent rather than being reinterpreted. Format 2 is the first such
+  bump: format-1 ``visit_actions`` hold root slot positions (F-41).
 * **``logschema.SCHEMA_ERA`` (there)** versions *JSONL row columns*. A bump means
   a column was added to what an iteration reports.
 
@@ -58,9 +64,10 @@ One absence semantics
 A stored value is absent for exactly one of two reasons, and neither is ever a
 raw zero:
 
-1. **era absence** — the field did not exist when the record was written.
-   Computed from ``record.ring_format`` against ``_FIELDS_SINCE[name]``, never
-   stored, because a record written before a field existed could not have
+1. **era absence** — the field did not exist when the record was written, or
+   existed under a meaning since redefined (``visit_actions`` before format 2,
+   F-41). Computed from ``record.ring_format`` against ``_FIELDS_SINCE[name]``,
+   never stored, because a record written before a field existed could not have
    explained the absence of something nobody had named. (Same resolution as
    ``logschema``'s, for the same reason.)
 2. **runtime absence** — the value genuinely was not available. One bit in
@@ -83,10 +90,14 @@ from reckoner.absence import AbsenceError, Absent
 from reckoner.config import Config
 from reckoner.dataset import sample_indices
 
-#: Ring record-layout version. Bump when a FIELD IS ADDED to a stored step.
+#: Ring record-layout version. Bump when a FIELD IS ADDED to a stored step, or
+#: when a field's stored MEANING changes (then move that field's ``since``).
 #: Distinct from :data:`reckoner.logschema.SCHEMA_ERA`, which versions JSONL row
 #: columns — see this module's docstring.
-RING_FORMAT = 1
+#:
+#: 2 (F-41): ``visit_actions`` hold dense action indices. Format-1 records hold
+#: root slot positions there, and the layout is otherwise identical.
+RING_FORMAT = 2
 
 #: Visit slots the record layout provides. Part of RING_FORMAT: widening this is
 #: a format bump, because every stored record's stride changes with it.
@@ -99,11 +110,18 @@ PAR_SOURCES: tuple[str, ...] = ("unverified", "bfs", "scripted", "pool")
 
 @dataclass(frozen=True, slots=True)
 class RingField:
-    """One stored column. ``absence`` is the reason it may be runtime-absent."""
+    """One stored column. ``absence`` is the reason it may be runtime-absent.
+
+    ``since`` is the format from which the stored values mean what this module
+    says they mean. ``since_reason``, when set, explains why older records cannot
+    be read — for a column that existed before ``since`` under another meaning,
+    "the field arrived later" would be false.
+    """
 
     name: str
     since: int = 1
     absence: str | None = None
+    since_reason: str | None = None
 
 
 #: Every stored column and the format version it appeared in. The ring's era map.
@@ -112,7 +130,20 @@ _FIELDS_SINCE: tuple[RingField, ...] = (
     RingField("site_positions"),
     RingField("length"),
     RingField("n_sites"),
-    RingField("visit_actions"),
+    # Redefined in format 2 (F-41). The runner stored root SLOT positions here
+    # while ring_batch read dense action indices, so a format-1 value is in the
+    # wrong coordinates, not merely stale. Its counts are fine; without the
+    # action each one belongs to they train nothing, and ring_batch sits the
+    # whole record out.
+    RingField(
+        "visit_actions",
+        since=2,
+        since_reason=(
+            "visit_actions held root SLOT positions (indices into legal_actions) "
+            "before ring_format 2, not dense action indices — F-41; they cannot be "
+            "read as actions"
+        ),
+    ),
     RingField("visit_counts"),
     # root_q is present from field one, not added later. The chess project
     # specified it and never stored it, and the gap was found only when the z/q
@@ -294,10 +325,10 @@ class ReplayRing:
         spec = _FIELD_MAP[name]
         record_format = int(self.record_format[slot])
         if record_format < spec.since:
+            detail = spec.since_reason or f"{name} arrived in {spec.since}"
             return Absent(
                 name,
-                f"predates_field: record written under ring_format {record_format}, "
-                f"{name} arrived in {spec.since}",
+                f"predates_field: record written under ring_format {record_format}, {detail}",
                 "era",
             )
         if self.absent_mask[slot] & (1 << _FIELD_INDEX[name]):
@@ -330,6 +361,16 @@ class ReplayRing:
                 raw[name] = absent
         raw["ring_format"] = int(self.record_format[slot])
         return raw
+
+    def era_absent(self, name: str) -> int:
+        """How many valid records predate ``name``'s current meaning.
+
+        A count, not a flag, so a caller refusing on it can say how much it
+        refused. Read from the per-record format — never from the ring's own
+        ``ring_format``, which only says what the next append will be stamped.
+        """
+        since = _FIELD_MAP[name].since
+        return int(np.count_nonzero(self.record_format[: self.count] < since))
 
     def holdout(self, frac: float, seed: int = 0) -> set[int]:
         """Slots reserved for evaluation, never trained on.
@@ -416,7 +457,20 @@ class ReplayRing:
                 f"{list(PAR_SOURCES)}. Order is part of the format — appending is a "
                 "format bump, reordering is a corruption."
             )
-        ring = cls(meta["capacity"], cfg, ring_format=meta["ring_format"])
+        if meta["ring_format"] > RING_FORMAT:
+            raise RingError(
+                f"ring was written under ring_format {meta['ring_format']}, newer than this "
+                f"code's {RING_FORMAT}. Code cannot vouch for a meaning it predates."
+            )
+        # Each record keeps the format it was WRITTEN under (``record_format``,
+        # loaded below); the ring itself is rebuilt at the format THIS code
+        # writes, because ``ring_format`` is what the next append is stamped
+        # with. Rebuilding at the meta's format stamped every post-resume record
+        # with the old format — inert while only format 1 existed, and at the
+        # first bump (F-41) it would have made every new, correct record read as
+        # era-absent. The layouts of formats 1 and 2 are identical; a future bump
+        # that changes the layout fails the reshape below, loudly.
+        ring = cls(meta["capacity"], cfg)
         for name in cls.ARRAYS:
             target = getattr(ring, name)
             data = np.fromfile(path / f"{name}.bin", dtype=target.dtype)

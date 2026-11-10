@@ -339,3 +339,61 @@ def test_omitting_absent_entirely_does_not_invent_absences() -> None:
     """A caller who passes nothing gets nothing — not two fabricated claims about
     a run the library has never seen."""
     assert _row()["absent"] == {}
+
+
+# ---------------------------------------------------------------------------
+# What the ring stores for a root's visits — F-41, pinned absolutely
+# ---------------------------------------------------------------------------
+
+
+def test_ring_visits_stores_action_indices_not_root_slots() -> None:
+    """**Pinned reference vector**, because a round trip cannot see this bug.
+
+    ``SearchResult.visits`` is indexed by root slot (position in ``actions``); the
+    ring stores dense action indices (``rule * max_sites + site``). The writer
+    and reader agreed with each other's *types* and disagreed about *coordinates*
+    for all of M1 (F-41). Absolute expected values, computed by hand:
+
+    =====  ==========  ======  ================================
+    slot   action      visits  dense index (max_sites = 192)
+    =====  ==========  ======  ================================
+    0      (1, 2)      3       1 * 192 + 2 = 194
+    1      (3, 0)      10      3 * 192 + 0 = 576
+    2      (0, 5)      0       0 * 192 + 5 = 5
+    =====  ==========  ======  ================================
+
+    Ordered by visits, descending: slot 1, slot 0, slot 2. The slot reading would
+    store ``[1, 0, 2]`` — cells 1, 0 and 2, which are ``eval_add`` at sites 1, 0
+    and 2, none of them the action visited.
+    """
+    from reckoner.runner import ring_visits
+    from reckoner.search import SearchResult
+
+    result = SearchResult(
+        visits=np.array([3, 10, 0], dtype=np.int32),
+        values=np.zeros(3, dtype=np.float32),
+        actions=[(1, 2), (3, 0), (0, 5)],
+        chosen=(3, 0),
+        root_value=0.0,
+    )
+    actions, counts = ring_visits(result, width=16, max_sites=192)
+    assert actions.tolist() == [576, 194, 5]
+    assert counts.tolist() == [10, 3, 0]
+    assert actions.dtype == np.int32 and counts.dtype == np.int32
+
+
+def test_ring_visits_keeps_only_the_top_width() -> None:
+    """The ring's slot count bounds what is stored; the top visits survive."""
+    from reckoner.runner import ring_visits
+    from reckoner.search import SearchResult
+
+    result = SearchResult(
+        visits=np.array([1, 7, 4], dtype=np.int32),
+        values=np.zeros(3, dtype=np.float32),
+        actions=[(0, 0), (2, 1), (4, 3)],
+        chosen=(2, 1),
+        root_value=0.0,
+    )
+    actions, counts = ring_visits(result, width=2, max_sites=192)
+    assert actions.tolist() == [2 * 192 + 1, 4 * 192 + 3]
+    assert counts.tolist() == [7, 4]

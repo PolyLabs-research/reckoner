@@ -212,14 +212,20 @@ def ring_batch(ring, indices: list[int], cfg: Config) -> Batch | None:
     The visit vector was stored **sparsely** (top-m actions and counts); it is
     re-expanded here into the dense action layout the policy head emits, so the
     ring stays small and the loss still sees a distribution.
+
+    ``visit_actions`` are dense action indices, written by
+    ``runner.ring_visits``. Records from ring_format 1 hold root slot positions
+    there (F-41); the ring reports them era-absent and they sit out here rather
+    than training the cells their slot numbers happen to name.
     """
     from reckoner.absence import Absent
 
     tokens, positions, masks, targets, steps, depths, zs, qs = [], [], [], [], [], [], [], []
     skipped = 0
+    needed = ("tokens", "visit_actions", "visit_counts", "root_q", "z")
     for i in indices:
         record = ring.get(i)
-        if any(isinstance(record[k], Absent) for k in ("tokens", "visit_counts", "root_q", "z")):
+        if any(isinstance(record[k], Absent) for k in needed):
             skipped += 1  # an era-absent field is not a zero; the row sits out
             continue
         goal, target, expr = decode_state(tuple(int(t) for t in record["tokens"]))

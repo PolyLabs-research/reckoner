@@ -66,6 +66,10 @@ class StateTooLarge(ValueError):
     """A state exceeds ``seq_len`` or ``max_sites``. Counted, never cropped."""
 
 
+class IllegalTargetError(ValueError):
+    """Policy-target mass on an action the movegen refuses. Refused, never dropped."""
+
+
 # ---------------------------------------------------------------------------
 # Encoding a state for the network
 # ---------------------------------------------------------------------------
@@ -237,11 +241,29 @@ def policy_loss(
 ) -> torch.Tensor:
     """Cross-entropy over the **legal** actions only.
 
-    Values under masked-off actions cannot affect the loss. That is the ported
+    Logits under masked-off actions cannot affect the loss. That is the ported
     fabricated-target detector: without it a model can be trained toward an
     action the movegen would refuse, and the symptom is invisible because the
     argmax is legal most of the time anyway.
+
+    **Target mass under masked-off actions is refused, not dropped (F-41).** The
+    masked log-probability is ``-inf`` there and ``nan_to_num`` makes the product
+    exactly 0, so an illegal target used to contribute nothing and say nothing.
+    That is how a writer storing root slots instead of action indices sent 93% of
+    the ring's visit mass into masked cells for all of M1 while every check
+    passed: the mask on logits was a detector, and on targets it was a silencer.
+    A target that names an illegal action has no correct reading, so it raises.
     """
+    off_legal = (targets != 0) & ~legal_mask
+    if bool(off_legal.any()):
+        rows = int(off_legal.any(-1).sum())
+        mass = float((targets * off_legal).sum())
+        raise IllegalTargetError(
+            f"{int(off_legal.sum())} policy-target entries in {rows} row(s) sit on "
+            f"illegal actions (total mass {mass:.4g}). The loss would drop them "
+            "silently; a target naming an action the movegen refuses is a writer bug "
+            "(F-41), not data."
+        )
     masked = policy_logits.masked_fill(~legal_mask, float("-inf"))
     log_probs = torch.log_softmax(masked, dim=-1)
     log_probs = torch.nan_to_num(log_probs, neginf=0.0)  # rows with no legal action

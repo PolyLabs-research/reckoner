@@ -387,3 +387,37 @@ def test_truncating_the_logs_is_idempotent() -> None:
         once = (run / "value_switch.jsonl").read_text()
         resume(run, CFG)
         assert (run / "value_switch.jsonl").read_text() == once
+
+
+# ---------------------------------------------------------------------------
+# A ring whose policy targets predate F-41 is not resumed into
+# ---------------------------------------------------------------------------
+
+
+def _commit_one(run: Path, ring: ReplayRing) -> None:
+    state = RunState(iteration=0, value_head=ValueHeadState(), seed=7)
+    commit_iteration(run, ring, state, lambda: None)
+
+
+def test_resume_refuses_a_ring_whose_visit_actions_predate_f41(tmp_path: Path) -> None:
+    """Format-1 records hold root SLOT positions, not actions (F-41).
+
+    ``ring_batch`` sits such a record out, which is right for a reader and silent
+    for a campaign: a resume across the fix would quietly train its policy on the
+    new rows alone, at an unchanged fingerprint, after iterations that trained on
+    the defect. The campaign fingerprint cannot see this, so resume refuses.
+    """
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    with pytest.raises(ResumeError, match="F-41"):
+        resume(tmp_path, CFG)
+
+
+def test_resume_accepts_a_ring_written_in_the_current_format(tmp_path: Path) -> None:
+    """The other polarity, so the refusal cannot be 'always refuse'."""
+    ring = ReplayRing(8, CFG)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    start, loaded, _state = resume(tmp_path, CFG)
+    assert start == 1 and loaded is not None and len(loaded) == 1

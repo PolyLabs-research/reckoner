@@ -180,6 +180,21 @@ def resume(run: Path, cfg: Config) -> tuple[int, ReplayRing | None, RunState | N
         return 0, None, None
 
     ring = ReplayRing.load(run / f"ring-{committed}", cfg)
+    # F-41. Records from before ring_format 2 hold root slot positions where
+    # their actions belong. ring_batch sits them out, which is right for a reader
+    # and SILENT for a campaign: a resume across the fix would train its policy on
+    # the new rows alone, at an unchanged config fingerprint, after iterations
+    # that trained on the defect. The fingerprint door cannot see that, so this
+    # refuses — before anything below rewrites a log.
+    stale = ring.era_absent("visit_actions")
+    if stale:
+        raise ResumeError(
+            f"ring-{committed} holds {stale} of {len(ring)} records whose visit_actions "
+            "predate ring_format 2: they are root slot positions, not actions (F-41). "
+            "Resuming would continue a campaign whose earlier iterations trained on "
+            "those targets, under a fingerprint that cannot show the difference. "
+            "Start a fresh run."
+        )
     state = RunState.from_dict(json.loads((run / f"state-{committed}.json").read_text()))
 
     if rows_path.exists():
