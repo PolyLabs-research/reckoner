@@ -59,10 +59,15 @@ class Batch:
     #: root_q. Absent for Phase-1 batches, where z is degenerate by construction.
     z_class: torch.Tensor | None = None
     root_q: torch.Tensor | None = None
-    #: Phase-2 'improved' only: rows that sat out because their π′ dropped more
-    #: than IMPROVED_TAIL_TOL beyond the ring's slots (F-54). Kept apart from
-    #: ``skipped``, which counts encode and era sit-outs.
+    #: Phase-2 'improved' only: rows whose π′ dropped more than IMPROVED_TAIL_TOL
+    #: beyond the ring's slots (F-54). Their POLICY target is withheld; they stay
+    #: in the batch for the value and steps heads. Kept apart from ``skipped``,
+    #: which counts encode and era sit-outs, which leave the batch entirely.
     truncated: int = 0
+    #: Which rows carry a policy target, or ``None`` when every row does. Set
+    #: only when a row's π′ was withheld, so the all-rows loss path — the
+    #: control arm's, and 'improved' without truncation — is untouched.
+    policy_rows: torch.Tensor | None = None
 
 
 #: The ring fields each policy target is built from (F-54). The keys are exactly
@@ -236,9 +241,11 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
 
     * ``'improved'`` — the Gumbel π′ the search stored, top ``IMPROVED_SLOTS`` by
       mass in dense action coordinates. A row whose dropped mass exceeds
-      ``IMPROVED_TAIL_TOL`` sits out, counted in ``truncated``; it is never
-      cropped and never renormalised. A row whose stored mass and tail do not
-      sum to one is refused: that is a broken writer, not a row.
+      ``IMPROVED_TAIL_TOL`` has its POLICY target withheld (``policy_rows``),
+      counted in ``truncated``; it is never cropped and never renormalised, and
+      it still trains the value and steps heads, so the policy lever cannot
+      change who the value head learns from. A row whose stored mass and tail
+      do not sum to one is refused: that is a broken writer, not a row.
     * ``'visits'`` — the Sequential-Halving visit share, exactly as before F-54:
       the control arm.
 
@@ -256,6 +263,7 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
     tokens, positions, masks, targets, steps, depths, zs, qs = [], [], [], [], [], [], [], []
     skipped = 0
     truncated = 0
+    has_policy: list[bool] = []
     needed = ("tokens", *TARGET_FIELDS[target], "root_q", "z")
     for i in indices:
         record = ring.get(i)
@@ -272,9 +280,7 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
                     f"{IMPROVED_MASS_TOL}. The writer checks this; a record that fails it "
                     "here was corrupted after writing."
                 )
-            if tail > IMPROVED_TAIL_TOL:
-                truncated += 1  # counted, never cropped, never renormalised
-                continue
+        withhold = target == "improved" and float(record["improved_tail"]) > IMPROVED_TAIL_TOL
         goal, target_var, expr = decode_state(tuple(int(t) for t in record["tokens"]))
         problem = Problem(
             goal=goal, expr=expr, par=int(record["par"]), target=target_var, par_source="bfs"
@@ -286,7 +292,9 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
             continue
 
         dense = torch.zeros(N_RULES * cfg.model.max_sites)
-        if target == "improved":
+        if withhold:
+            truncated += 1  # policy target withheld: counted, never cropped or renormalised
+        elif target == "improved":
             for action, p in zip(record["improved_actions"], record["improved_probs"], strict=True):
                 if p > 0:
                     dense[int(action)] = float(p)
@@ -300,6 +308,7 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
                 if count > 0:
                     dense[int(action)] = float(count / total)
 
+        has_policy.append(not withhold)
         tokens.append(state.tokens)
         positions.append(state.site_positions)
         masks.append(state.legal_mask)
@@ -324,6 +333,7 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
         depth=torch.tensor(depths),
         skipped=skipped,
         truncated=truncated,
+        policy_rows=torch.tensor(has_policy) if truncated else None,
     )
     batch.z_class = torch.tensor(zs, dtype=torch.long)
     batch.root_q = torch.tensor(qs, dtype=torch.float32)
@@ -441,9 +451,23 @@ def train_on_ring(
         policy, value_logits, steps_out = model(
             batch.tokens.to(device), batch.site_positions.to(device)
         )
-        loss = cfg.train.policy_loss_weight * policy_loss(
-            policy, batch.policy_target.to(device), batch.legal_mask.to(device)
-        )
+        rows = batch.policy_rows
+        if rows is None:
+            # Every row carries a policy target: the control arm's path, and
+            # 'improved' without truncation — unchanged from before F-54.
+            p_loss = policy_loss(
+                policy, batch.policy_target.to(device), batch.legal_mask.to(device)
+            )
+        elif bool(rows.any()):
+            keep = rows.to(device)
+            p_loss = policy_loss(
+                policy[keep],
+                batch.policy_target.to(device)[keep],
+                batch.legal_mask.to(device)[keep],
+            )
+        else:
+            p_loss = policy.sum() * 0.0  # no row teaches the policy; value and steps still do
+        loss = cfg.train.policy_loss_weight * p_loss
         assert steps_out is not None
         loss = loss + cfg.train.steps_loss_weight * steps_loss(
             steps_out, batch.steps_target.to(device), batch.solved_mask.to(device)

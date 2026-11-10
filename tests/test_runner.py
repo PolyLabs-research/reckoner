@@ -469,3 +469,34 @@ def test_kl_divergence_refuses_mass_the_prior_does_not_have() -> None:
     assert kl_divergence(np.array([0.5, 0.5]), np.array([0.5, 0.5])) == 0.0
     with pytest.raises(ValueError, match="no"):
         kl_divergence(np.array([0.5, 0.5]), np.array([1.0, 0.0]))
+
+
+def test_kl_survives_a_prior_that_underflows_in_float32() -> None:
+    """A confident network: a legal action 110 nats below the favourite has a
+    positive float64 prior (e^-110) that underflows to 0 in float32. The search
+    proves the favourite a loss, so π′ keeps mass on the underdog. The
+    diagnostic must stay finite rather than halt self-play (F-54 review)."""
+    from reckoner.runner import _Live, _record
+    from reckoner.search import SearchResult, SearchStats, _improved_target
+
+    logits = np.array([0.0, -110.0])
+    visits = np.array([24, 24], np.int32)
+    values = np.array([-1.0, 0.0], np.float32)
+    prior = np.exp(logits - logits.max())
+    prior = prior / prior.sum()
+    assert np.float32(prior[1]) == 0.0 < prior[1], "the premise: float32 underflow"
+    improved = _improved_target(logits, visits, values, 0.0, CFG)
+    assert improved[1] > 0.0
+    result = SearchResult(
+        visits,
+        values,
+        [(0, 0), (0, 1)],
+        (0, 1),
+        0.0,
+        SearchStats(),
+        root_priors=prior,
+        improved=improved,
+    )
+    stats = IterationStats()
+    _record(stats, result, _Live(problem=None, expr=None, rng=None, index=0))  # type: ignore[arg-type]
+    assert np.isfinite(stats.kl_start[0]) and stats.kl_start[0] > 0.0

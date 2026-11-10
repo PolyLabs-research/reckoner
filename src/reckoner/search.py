@@ -299,7 +299,8 @@ def _improved_target(
     33): the network's own root estimate v̂ mixed with the prior-weighted mean of
     the visited values,
 
-        v_mix = (v̂ + ΣN · Σ_visited softmax(logits)_a · q_a) / (1 + ΣN).
+        v_mix = (v̂ + ΣN · Σ_{a visited} π_V(a) · q_a) / (1 + ΣN),
+        π_V = softmax over the VISITED actions' logits = π(a) / Σ_{b visited} π(b).
 
     Not the root's own value: that is a max, so one proof would complete every
     unexplored action at the proof's level and π′ would fall back to the prior.

@@ -26,29 +26,30 @@ field                layout                                      bytes
 ``goal``             int8                                              1
 ``ring_format``      int16 — the format version this record was written under   2
 ``absent_mask``      uint32 — one bit per runtime-absent field           4
-``improved_actions`` 128 × int32 — π′'s top-128 actions, dense      512
+``improved_actions`` 160 × int32 — π′'s top-160 actions, dense      640
                      indices (F-54, format 3)
-``improved_probs``   128 × float32 — their π′ mass                    512
-``improved_tail``    float32 — π′ mass NOT stored, exact               4
-**per record**                                                    **2586**
+``improved_probs``   160 × float32 — their π′ mass                    640
+``improved_tail``    float64 — π′ mass NOT stored, exact               8
+**per record**                                                    **2846**
 ===================  ==========================================  =======
 
-At ``train.replay_capacity`` = 500,000 that is **1.20 GiB** (0.72 GiB before
+At ``train.replay_capacity`` = 500,000 that is **1.33 GiB** (0.72 GiB before
 F-54's π′ fields), against ~45 GiB of realistically free host RAM since the
 2026-08-16 rebalance (AGENTS.md §3). The capacity clears with more than an order
-of margin, so it stays **decided at 500,000**. 200,000 would be 0.48 GiB and
-100,000 would be 0.24 GiB, recorded so a later reduction is a choice with a
+of margin, so it stays **decided at 500,000**. 200,000 would be 0.53 GiB and
+100,000 would be 0.27 GiB, recorded so a later reduction is a choice with a
 number attached.
 
 The visit vector is stored **sparsely** — the top-``gumbel_m`` root actions and
 their counts — not as a dense 1,344-wide distribution. The search visits at most
 ``m`` root actions by construction, so the visit layout is lossless.
 
-**π′ is different (F-54):** it has mass on every legal action, so its top-128
-store is lossless only up to 128 legal actions. Wider roots are written with the
-dropped mass recorded exactly in ``improved_tail``, and ``ring_batch`` sits a row
-out rather than train on a cropped target when that mass exceeds
-``IMPROVED_TAIL_TOL``.
+**π′ is different (F-54):** it has mass on every legal action, so its top-160
+store is lossless only up to 160 legal actions. Wider roots are written with the
+dropped mass recorded exactly in ``improved_tail``, and when that mass exceeds
+``IMPROVED_TAIL_TOL`` ``ring_batch`` withholds the row's POLICY target rather
+than train on a cropped one — the row still trains the value and steps heads, so
+the policy lever never changes who the value head learns from.
 
 Two era systems exist. They are not the same one
 -------------------------------------------------
@@ -117,11 +118,14 @@ VISIT_SLOTS = 16
 #: π′ slots per record (F-54). π′ has mass on EVERY legal action, so unlike the
 #: visit share it is not bounded by ``gumbel_m``. Sized by width, not by how
 #: peaked any network is: the smallest multiple of 32 at least 1.5 × the widest
-#: root measured on reached states (83 legal actions; median 27, p90 48, p99 69).
-#: A record wider than this is still written, its dropped mass recorded, and it
-#: sits out of training if that mass exceeds ``IMPROVED_TAIL_TOL``. Part of the
-#: format: widening it is a format bump.
-IMPROVED_SLOTS = 128
+#: root measured. First sized at 128 from uniform-stub episodes on the frozen
+#: suites (widest 83); the F-54 review then measured 103 legal actions on rings a
+#: random-init network fills from generator problems — the capped, wandering
+#: episodes a weak policy produces — and the same rule gives 160. A record wider
+#: than this is still written, its dropped mass recorded, and its POLICY target is
+#: withheld if that mass exceeds ``IMPROVED_TAIL_TOL``. Part of the format:
+#: widening it is a format bump.
+IMPROVED_SLOTS = 160
 
 #: π′ mass a record may drop and still train. Above it the row sits out, counted
 #: — never cropped, never renormalised (the StateTooLarge precedent).
@@ -281,7 +285,9 @@ class ReplayRing:
         self.absent_mask = np.zeros(capacity, dtype=np.uint32)
         self.improved_actions = np.zeros((capacity, IMPROVED_SLOTS), dtype=np.int32)
         self.improved_probs = np.zeros((capacity, IMPROVED_SLOTS), dtype=np.float32)
-        self.improved_tail = np.zeros(capacity, dtype=np.float32)
+        # float64: the writer decides on this exact value and the reader must
+        # decide on the same one, so it is stored at the precision it is summed.
+        self.improved_tail = np.zeros(capacity, dtype=np.float64)
 
     # -- writing ----------------------------------------------------------
 
@@ -516,9 +522,10 @@ class ReplayRing:
             "max_sites": self.cfg.model.max_sites,
             "gumbel_m": self.cfg.search.gumbel_m,
             "par_sources": list(PAR_SOURCES),
-            "bytes_per_record": bytes_per_record(self.cfg),
-            "improved_slots": IMPROVED_SLOTS,
+            "bytes_per_record": bytes_per_record(self.cfg, self.ring_format),
         }
+        if self.ring_format >= 3:
+            meta["improved_slots"] = IMPROVED_SLOTS
         (path / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
         return meta
 
@@ -615,10 +622,15 @@ def era_absent_on_disk(path: Path, name: str) -> tuple[int, int]:
     return int(np.count_nonzero(formats < _FIELD_MAP[name].since)), count
 
 
-def bytes_per_record(cfg: Config) -> int:
-    """Per-record footprint, computed rather than quoted from the docstring."""
+def bytes_per_record(cfg: Config, ring_format: int = RING_FORMAT) -> int:
+    """Per-record footprint, computed rather than quoted from the docstring.
+
+    ``ring_format`` prices an older layout: a ring saved at a declared format
+    below 3 has no π′ fields, and its meta must not claim their bytes.
+    """
     m = cfg.model
-    return (
+    improved = (IMPROVED_SLOTS * 4 * 2 + 8) if ring_format >= 3 else 0
+    return improved + (
         m.seq_len * 2
         + m.max_sites * 2
         + 2  # length
@@ -634,7 +646,6 @@ def bytes_per_record(cfg: Config) -> int:
         + 1  # goal
         + 2  # record_format
         + 4  # absent_mask
-        + IMPROVED_SLOTS * 4  # improved_actions
-        + IMPROVED_SLOTS * 4  # improved_probs
-        + 4  # improved_tail
+        # + IMPROVED_SLOTS * 4 (improved_actions) + IMPROVED_SLOTS * 4
+        # (improved_probs) + 8 (improved_tail, float64) from format 3 — above.
     )

@@ -507,3 +507,21 @@ def test_the_redefined_target_entropy_says_what_it_used_to_mean() -> None:
 def test_a_nonzero_truncation_count_writes_and_alarms() -> None:
     alarms = validate_row(good_row(ring_improved_truncated=3))
     assert any(a["field"] == "ring_improved_truncated" and a["value"] == 3 for a in alarms)
+
+
+def test_an_era_3_row_missing_the_redefined_column_is_refused() -> None:
+    """The other polarity of era absence for a REDEFINED column: it existed in
+    era 3 under its old meaning and was required then, so an era-3 row without
+    it is missing a column — not excused by an era it did exist in."""
+    row = good_row(schema_era=3)
+    for name in (
+        "entropy_visits_step1_start",
+        "entropy_visits_step1_reached",
+        "kl_improved_prior_step1_start",
+        "kl_improved_prior_step1_reached",
+        "ring_improved_truncated",
+    ):
+        del row[name]
+    del row["entropy_target_step1_start"]
+    with pytest.raises(SchemaError, match="entropy_target_step1_start"):
+        validate_row(row)
