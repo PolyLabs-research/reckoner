@@ -238,3 +238,16 @@ def test_the_inertness_prover_still_says_yes_where_it_should() -> None:
         "rehearsal_frac now reads inside the measurement closure; M1-A4's "
         "measurement-inertness claim no longer holds and the gate must re-run"
     )
+
+
+def test_the_policy_target_is_never_read_on_the_measurement_path() -> None:
+    """F-54's measurement-inertness: ``train.policy_target`` is read only by
+    ``ring_batch`` and ``train_on_ring``, which the instrument seam never reaches.
+    So the fingerprint move does not touch what the cadence measures."""
+    from scripts.prove_measurement_inert import measurement_closure
+
+    closure, reads = measurement_closure()
+    assert not (reads.get("policy_target", set()) & closure), (
+        "policy_target is now read inside the measurement closure; F-54's "
+        "inertness claim no longer holds"
+    )

@@ -44,19 +44,21 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from reckoner.config import Config
-from reckoner.replay import STALE_TARGETS, ReplayRing, era_absent_on_disk
+from reckoner.replay import NO_IMPROVED_TARGET, STALE_TARGETS, ReplayRing, era_absent_on_disk
 from reckoner.valuegate import ValueHeadState
 
 #: Committed rings kept behind ``LATEST``. Priced before being chosen, rider (c)
-#: applied to disk: one ring at ``replay_capacity`` 500,000 is **0.73 GiB**, so an
-#: unpruned run costs 14.5 GiB by iteration 20, **36.3 GiB by 50**, 72.6 GiB by
-#: 100 — against 114 GiB free on this box. Disk exhaustion mid-campaign is not how
-#: this policy should be discovered.
+#: applied to disk: one ring at ``replay_capacity`` 500,000 is **1.20 GiB** since
+#: F-54's π′ fields (0.73 GiB before), so an unpruned run would cost 24.1 GiB by
+#: iteration 20, **60.2 GiB by 50**, 120 GiB by 100 — against 114 GiB free on the
+#: box when this was first priced. Disk exhaustion mid-campaign is not how this
+#: policy should be discovered.
 #:
 #: 3 is chosen over 1 because the resume path is the one path that only ever runs
 #: after something has already gone wrong: if the newest committed ring is
 #: unreadable, two older ones let a run be rewound rather than restarted. Steady
-#: state is 2.18 GiB, which is not a number worth optimising against 114 GiB free.
+#: state is 3.61 GiB (4.82 GiB transiently during a commit), still not a number
+#: worth optimising against that free space.
 KEEP_RINGS = 3
 
 
@@ -217,13 +219,24 @@ def check_resumable(run: Path) -> None:
     committed = latest_committed(run)
     if committed is None:
         return
-    stale, total = era_absent_on_disk(run / f"ring-{committed}", "visit_actions")
+    ring_dir = run / f"ring-{committed}"
+    stale, total = era_absent_on_disk(ring_dir, "visit_actions")
     if stale:
         raise ResumeError(
             f"ring-{committed} holds {stale} of {total} records whose {STALE_TARGETS}. "
             "Resuming would continue a campaign whose earlier iterations trained on "
             "those targets, under a fingerprint that cannot show the difference. "
             "Start a fresh run."
+        )
+    # F-54, under BOTH arms and without reading train.policy_target (this door is
+    # read-only and config-free on purpose): a run that crosses ring_format 3 has
+    # crossed a fingerprint move mid-run either way — its earlier iterations
+    # trained on the visit share and carry no π′.
+    lacking, total = era_absent_on_disk(ring_dir, "improved_probs")
+    if lacking:
+        raise ResumeError(
+            f"ring-{committed} holds {lacking} of {total} records: {NO_IMPROVED_TARGET}. "
+            "Resuming would join two policy targets in one run. Start a fresh run."
         )
 
 

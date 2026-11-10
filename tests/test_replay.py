@@ -20,6 +20,7 @@ from reckoner.config import Config
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.episode import Problem
 from reckoner.replay import (
+    IMPROVED_SLOTS,
     RING_FORMAT,
     Absent,
     ReplayRing,
@@ -31,6 +32,19 @@ from reckoner.search import search, uniform_stub
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
 CFG = Config()
+
+
+def improved_fields(actions=(5, 9), probs=(0.75, 0.25), tail: float = 0.0) -> dict:
+    """A format-3 record's π′ fields: ``IMPROVED_SLOTS`` wide, padded with zeros."""
+    stored_actions = np.zeros(IMPROVED_SLOTS, dtype=np.int32)
+    stored_probs = np.zeros(IMPROVED_SLOTS, dtype=np.float32)
+    stored_actions[: len(actions)] = actions
+    stored_probs[: len(probs)] = probs
+    return {
+        "improved_actions": stored_actions,
+        "improved_probs": stored_probs,
+        "improved_tail": tail,
+    }
 
 
 def a_record(**overrides) -> dict:
@@ -46,6 +60,7 @@ def a_record(**overrides) -> dict:
         "steps_remaining": 2,
         "depth": 3,
         "goal": 16,
+        **improved_fields(),
     }
     record.update(overrides)
     return record
@@ -62,14 +77,15 @@ def test_bytes_per_record_matches_the_declared_footprint() -> None:
     Fourth-instance discipline: a summary of a derivation drifts from it, so the
     number is computed and the declared value is checked against the computation.
     """
-    assert bytes_per_record(CFG) == 1558
+    assert bytes_per_record(CFG) == 2586  # 1558 before F-54's π′ fields
 
 
 def test_the_declared_capacity_fits_the_declared_budget() -> None:
-    """0.72 GiB at 500,000 against ~15 GiB realistically free (AGENTS.md §3)."""
+    """1.20 GiB at 500,000 against ~45 GiB realistically free since the
+    2026-08-16 rebalance (AGENTS.md §3); 0.72 GiB before F-54."""
     gib = CFG.train.replay_capacity * bytes_per_record(CFG) / 1024**3
-    assert gib == pytest.approx(0.72, abs=0.01)
-    assert gib < 15.0
+    assert gib == pytest.approx(1.20, abs=0.01)
+    assert gib < 45.0
 
 
 # ---------------------------------------------------------------------------
@@ -237,7 +253,8 @@ def test_ring_batch_sits_out_a_pre_f53_record() -> None:
     )
     old = ReplayRing(4, CFG, ring_format=1)
     old.append(**record)
-    assert ring_batch(old, [0], CFG) is None
+    # The visit arm is the one F-53 is about; since F-54 it is no longer the default.
+    assert ring_batch(old, [0], CFG, target="visits") is None
 
     new = ReplayRing(4, CFG)
     from reckoner.model import action_index
@@ -245,7 +262,7 @@ def test_ring_batch_sits_out_a_pre_f53_record() -> None:
 
     legal = action_index(*legal_actions(problem.expr)[0], CFG.model.max_sites)
     new.append(**{**record, "visit_actions": np.array([legal], dtype=np.int32)})
-    batch = ring_batch(new, [0], CFG)
+    batch = ring_batch(new, [0], CFG, target="visits")
     assert batch is not None and batch.skipped == 0
     assert float(batch.policy_target[0, legal]) == 1.0
 
@@ -428,3 +445,130 @@ def test_a_ring_from_a_newer_format_is_refused_at_load(tmp_path: Path) -> None:
     meta_path.write_text(json.dumps(meta))
     with pytest.raises(RingError, match="newer"):
         ReplayRing.load(tmp_path / "ring", CFG)
+
+
+# ---------------------------------------------------------------------------
+# F-54: ring format 3 — π′ fields, appended; old rings load era-absent
+# ---------------------------------------------------------------------------
+
+
+def test_the_pre_f54_field_positions_are_unchanged() -> None:
+    """A field's position is its absent_mask bit. The π′ fields were APPENDED;
+    an insertion would silently re-map every saved ring's absence bits."""
+    from reckoner.replay import _FIELD_INDEX
+
+    before = [
+        "tokens",
+        "site_positions",
+        "length",
+        "n_sites",
+        "visit_actions",
+        "visit_counts",
+        "root_q",
+        "z",
+        "par_source",
+        "par",
+        "steps_remaining",
+        "depth",
+        "goal",
+    ]
+    assert [_FIELD_INDEX[name] for name in before] == list(range(len(before)))
+    assert [_FIELD_INDEX[n] for n in ("improved_actions", "improved_probs", "improved_tail")] == [
+        13,
+        14,
+        15,
+    ]
+
+
+def test_pi_prime_fields_round_trip_through_save_and_load(tmp_path: Path) -> None:
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record(**improved_fields(actions=(7, 3, 0), probs=(0.5, 0.25, 0.25))))
+    ring.save(tmp_path / "ring")
+    got = ReplayRing.load(tmp_path / "ring", CFG).get(0)
+    assert got["improved_actions"].tolist()[:3] == [7, 3, 0]
+    assert got["improved_probs"].tolist()[:3] == [0.5, 0.25, 0.25]
+    assert got["improved_tail"] == 0.0
+
+
+def _as_format_2(path: Path) -> None:
+    """Rewrite a saved ring as a format-2 writer would have left it."""
+    import json
+
+    for name in ("improved_actions", "improved_probs", "improved_tail"):
+        (path / f"{name}.bin").unlink()
+    meta = json.loads((path / "meta.json").read_text())
+    meta["ring_format"] = 2
+    del meta["improved_slots"]
+    (path / "meta.json").write_text(json.dumps(meta))
+
+
+def test_a_format_2_ring_loads_with_its_pi_prime_era_absent(tmp_path: Path) -> None:
+    old = ReplayRing(4, CFG, ring_format=2)
+    old.append(**a_record())
+    old.save(tmp_path / "ring")
+    assert not (tmp_path / "ring" / "improved_probs.bin").exists(), (
+        "a format-2 ring must be saved without the format-3 fields"
+    )
+    loaded = ReplayRing.load(tmp_path / "ring", CFG)
+    got = loaded.get(0)
+    assert isinstance(got["improved_probs"], Absent) and got["improved_probs"].kind == "era"
+    assert not isinstance(got["visit_actions"], Absent), "format 2's visit actions stand"
+    assert loaded.era_absent("improved_probs") == 1
+
+
+def test_a_format_2_ring_carrying_format_3_files_is_refused(tmp_path: Path) -> None:
+    import json
+
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record())
+    ring.save(tmp_path / "ring")
+    meta = json.loads((tmp_path / "ring" / "meta.json").read_text())
+    meta["ring_format"] = 2
+    (tmp_path / "ring" / "meta.json").write_text(json.dumps(meta))
+    with pytest.raises(RingError, match="cannot contain improved"):
+        ReplayRing.load(tmp_path / "ring", CFG)
+
+
+def test_a_format_3_ring_missing_a_pi_prime_file_is_refused(tmp_path: Path) -> None:
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record())
+    ring.save(tmp_path / "ring")
+    (tmp_path / "ring" / "improved_tail.bin").unlink()
+    with pytest.raises(RingError, match="missing improved_tail"):
+        ReplayRing.load(tmp_path / "ring", CFG)
+
+
+def test_a_ring_with_a_different_slot_count_is_refused(tmp_path: Path) -> None:
+    import json
+
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record())
+    ring.save(tmp_path / "ring")
+    meta = json.loads((tmp_path / "ring" / "meta.json").read_text())
+    meta["improved_slots"] = 64
+    (tmp_path / "ring" / "meta.json").write_text(json.dumps(meta))
+    with pytest.raises(RingError, match="π′ slots"):
+        ReplayRing.load(tmp_path / "ring", CFG)
+
+
+@pytest.mark.parametrize(
+    ("override", "match"),
+    [
+        (improved_fields(probs=(0.75, 0.2)), "not 1"),
+        (improved_fields(probs=(np.nan, 0.25)), "non-finite"),
+        (improved_fields(probs=(1.25, -0.25)), "negative"),
+        (improved_fields(tail=-0.1, probs=(0.75, 0.35)), "negative"),
+        ({"improved_probs": np.ones(4, dtype=np.float32)}, "wide"),
+    ],
+)
+def test_append_refuses_a_target_that_is_not_a_distribution(override: dict, match: str) -> None:
+    ring = ReplayRing(4, CFG)
+    with pytest.raises(RingError, match=match):
+        ring.append(**a_record(**override))
+
+
+def test_append_accepts_a_distribution_with_its_tail() -> None:
+    """The other polarity: stored mass plus the recorded tail sums to one."""
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record(**improved_fields(probs=(0.75, 0.2), tail=0.05)))
+    assert ring.get(0)["improved_tail"] == pytest.approx(0.05)

@@ -89,6 +89,10 @@ class SearchStats:
 
 @dataclass
 class SearchResult:
+    """One root search. ``visits`` and ``values`` are indexed by ROOT SLOT, the
+    position in ``actions`` (``legal_actions`` order). ``values`` holds -1.0 where
+    ``visits == 0``: that is the initialiser, not a value — mask by visits."""
+
     visits: np.ndarray
     values: np.ndarray
     actions: list[tuple[int, int]]
@@ -102,8 +106,23 @@ class SearchResult:
     #: every existing call site passes `stats` sixth positionally, and inserting
     #: a defaulted field ahead of it silently rebinds that argument.
     root_priors: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.float32))
+    #: **The Gumbel improved policy π′** over every legal root action, slot-indexed
+    #: like ``actions``, float32, summing to 1 — the Phase-2 policy target under
+    #: ``train.policy_target = 'improved'`` (F-54). softmax(logits + σ(completed
+    #: Q)): visited actions completed by their own value, unvisited ones by v_mix.
+    #: Required and keyword-only: a default would be a provenance default claiming
+    #: "computed" (F-02), and a positional slot would be rebound by the next field
+    #: someone inserts ahead of it (see ``root_priors``).
+    improved: np.ndarray = field(kw_only=True)
 
-    def improved_policy(self) -> np.ndarray:
+    def visit_share(self) -> np.ndarray:
+        """The Sequential-Halving visit share, ``visits / visits.sum()``.
+
+        Named for what it is. Before F-54 this method was called
+        ``improved_policy`` and was the training target; its shape is a function
+        of the visited count alone, which is why it is not the improved policy and
+        why it survives only as the ``'visits'`` control arm.
+        """
         total = self.visits.sum()
         if total == 0:
             return np.full(len(self.actions), 1.0 / max(1, len(self.actions)), dtype=np.float32)
@@ -257,12 +276,87 @@ def _sigma(q: np.ndarray, max_visits: int, cfg: Config) -> np.ndarray:
     return (cfg.search.c_visit + max_visits) * cfg.search.c_scale * q
 
 
+def _gumbel_improved(
+    priors: np.ndarray, completed: np.ndarray, max_visits: int, cfg: Config
+) -> np.ndarray:
+    """softmax(priors + σ(completed)) — **the one implementation** of the formula.
+
+    The non-root rule and the root target both call it, each passing its own
+    completion. No dtype coercion here: the non-root rule must stay bit-identical
+    to what it was before F-54, so the caller's dtypes are the caller's.
+    """
+    return _softmax(priors + _sigma(completed, max_visits, cfg))
+
+
+def _improved_target(
+    logits: np.ndarray, visits: np.ndarray, values: np.ndarray, v_hat: float, cfg: Config
+) -> np.ndarray:
+    """The root's π′ over EVERY legal action, slot-indexed, float32 (F-54).
+
+    Visited actions are completed by their own (max-backed) value; that is the
+    value Sequential Halving ranked them by, and a terminal child's is its exact
+    z. **Unvisited actions are completed by v_mix** (Danihelka et al. 2022, eq.
+    33): the network's own root estimate v̂ mixed with the prior-weighted mean of
+    the visited values,
+
+        v_mix = (v̂ + ΣN · Σ_visited softmax(logits)_a · q_a) / (1 + ΣN).
+
+    Not the root's own value: that is a max, so one proof would complete every
+    unexplored action at the proof's level and π′ would fall back to the prior.
+    Not v̂ alone: that is 0 while the value head is silent, which ranks an unknown
+    action level with a proven solve and well above a proven loss it might be.
+
+    Visited is ``visits > 0`` and nothing else. The -1.0 initialiser of unvisited
+    child values is also a legitimate proven-loss value, so no value test can
+    tell them apart, and an unvisited slot's value is never read.
+
+    Pure: no rng, no config beyond σ's constants. The Gumbel draw never enters.
+    """
+    visited = visits > 0
+    total = int(visits.sum())
+    q = np.where(visited, values.astype(np.float64), 0.0)
+    if total == 0:
+        v_mix = float(v_hat)
+    else:
+        weights = _softmax(logits[visited].astype(np.float64))
+        v_mix = (float(v_hat) + total * float(np.dot(weights, q[visited]))) / (1 + total)
+    completed = np.where(visited, q, v_mix)
+    return _gumbel_improved(
+        logits.astype(np.float64), completed, int(visits.max(initial=0)), cfg
+    ).astype(np.float32)
+
+
+def _root_improved(tree: _Tree, root: int, logits: np.ndarray, cfg: Config) -> np.ndarray:
+    """π′ at the root, after the structural tripwire.
+
+    Every root child is created and backed up within the same simulation, so a
+    child exists exactly where it has visits. If that ever fails, the visited
+    mask and the tree disagree, and the completion would read an initialiser as
+    a value — refused here rather than trained on.
+    """
+    children, visits = tree.children[root], tree.child_visits[root]
+    values = tree.child_values[root]
+    assert children is not None and visits is not None and values is not None
+    if not np.array_equal(children >= 0, visits > 0):
+        raise RuntimeError(
+            "root children and root visits disagree: a child exists without being "
+            "visited, or was visited without existing. The visited mask is the only "
+            "thing that separates a value from the -1.0 initialiser (F-54)."
+        )
+    return _improved_target(logits, visits, values, float(tree.own_eval[root]), cfg)
+
+
 def _select(tree: _Tree, node: int, cfg: Config) -> int:
-    """Gumbel-AZ's non-root rule: follow the improved policy, minus visit share."""
+    """Gumbel-AZ's non-root rule: follow the improved policy, minus visit share.
+
+    Its completion is the node's own (max-backed) value — unchanged by F-54,
+    which moved only the root's training target. Unifying the two completions
+    would change the search, a second lever, and is registered separately.
+    """
     priors, visits, values = tree.priors[node], tree.child_visits[node], tree.child_values[node]
     assert priors is not None and visits is not None and values is not None
     completed = np.where(visits > 0, values, float(tree.value[node]))
-    improved = _softmax(priors + _sigma(completed, int(visits.max(initial=0)), cfg))
+    improved = _gumbel_improved(priors, completed, int(visits.max(initial=0)), cfg)
     return int(np.argmax(improved - visits / (1 + visits.sum())))
 
 
@@ -343,7 +437,15 @@ def _simulate(
     root_actions = legal_actions(expr)
     if not root_actions:
         stats.terminal_no_actions += 1
-        return SearchResult(np.zeros(0, np.int32), np.zeros(0, np.float32), [], None, -1.0, stats)
+        return SearchResult(
+            np.zeros(0, np.int32),
+            np.zeros(0, np.float32),
+            [],
+            None,
+            -1.0,
+            stats,
+            improved=np.zeros(0, np.float32),
+        )
 
     raw, root_value = yield (problem, expr)
     stats.evaluations += 1
@@ -425,6 +527,9 @@ def _simulate(
         considered,
         key=lambda s: logits[s] + gumbel[s] + _sigma(values[s : s + 1], int(visits.max()), cfg)[0],
     )
+    # π′ is computed AFTER the act and feeds nothing back into it: the search's
+    # visits, values and choice are exactly what they were before F-54.
+    improved = _root_improved(tree, root, logits, cfg)
     return SearchResult(
         visits.copy(),
         values.copy(),
@@ -432,7 +537,8 @@ def _simulate(
         root_actions[best],
         float(tree.value[root]),
         stats,
-        _softmax(logits),
+        root_priors=_softmax(logits),
+        improved=improved,
     )
 
 

@@ -418,3 +418,55 @@ def test_the_m1_era_fingerprints_stay_quotable() -> None:
     )
     # And the era is genuinely PAST: the live pins have moved off it.
     assert M1_ERA_FINGERPRINTS["campaign"] != CAMPAIGN_FINGERPRINT
+
+
+# ---------------------------------------------------------------------------
+# F-54: the fingerprints moved once, by exactly one key
+# ---------------------------------------------------------------------------
+
+
+def test_the_f54_move_changed_exactly_one_key() -> None:
+    """Deleting ``train.policy_target`` from today's config recovers the pair the
+    door pinned before F-54, exactly, for both profiles: nothing else moved under
+    the same move. Deleting ``campaign.device`` as well recovers M1's pair, so
+    the two moves since M1 are those two keys and nothing more."""
+    from reckoner.campaign import (
+        DEVICE_ERA_FINGERPRINTS,
+        EVAL_FINGERPRINT,
+        M1_ERA_FINGERPRINTS,
+        eval_profile,
+    )
+    from reckoner.config import _dataclass_to_dict, fingerprint_of
+
+    for cfg, now, era in (
+        (Config(), CAMPAIGN_FINGERPRINT, "campaign"),
+        (eval_profile(Config()), EVAL_FINGERPRINT, "eval"),
+    ):
+        tree = _dataclass_to_dict(cfg)
+        assert fingerprint_of(tree) == now
+        del tree["train"]["policy_target"]
+        assert fingerprint_of(tree) == DEVICE_ERA_FINGERPRINTS[era]
+        del tree["campaign"]["device"]
+        assert fingerprint_of(tree) == M1_ERA_FINGERPRINTS[era]
+
+
+def test_deleting_some_other_key_does_not_recover_the_earlier_pair() -> None:
+    """The other polarity: the recovery is specific to the one key, not a quirk
+    of deleting anything."""
+    from reckoner.campaign import DEVICE_ERA_FINGERPRINTS
+    from reckoner.config import _dataclass_to_dict, fingerprint_of
+
+    tree = _dataclass_to_dict(Config())
+    del tree["train"]["lr"]
+    assert fingerprint_of(tree) != DEVICE_ERA_FINGERPRINTS["campaign"]
+
+
+def test_m1_literals_are_the_recorded_pair() -> None:
+    """The M1 literals are quoted from the record, never recomputed."""
+    from pathlib import Path
+
+    from reckoner.campaign import M1_CAMPAIGN_FINGERPRINT, M1_EVAL_FINGERPRINT
+
+    page = (Path(__file__).resolve().parents[1] / "PREREG-m1.md").read_text()
+    assert M1_CAMPAIGN_FINGERPRINT[:16] in page
+    assert M1_EVAL_FINGERPRINT[:16] in page

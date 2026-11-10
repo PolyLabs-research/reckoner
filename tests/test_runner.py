@@ -149,11 +149,18 @@ def test_both_entropy_populations_are_measured() -> None:
 
 
 @needs_suites
-def test_prior_and_target_entropy_are_different_measurements() -> None:
-    """Prior entropy alone cannot tell a confident policy from a collapsed one."""
+def test_prior_and_visit_entropy_are_different_measurements() -> None:
+    """Prior entropy alone cannot tell a confident policy from a collapsed one.
+
+    Rewritten for F-54. This asserted H(prior) != H(target) while the target was
+    the visit share. Under π′ the two are EQUAL wherever search found nothing —
+    correctly — and against the flat-prior stub they then differ only by float32
+    rounding, which is not a measurement. The visit share is still a different
+    quantity from the prior; π′'s separation is tested below, on KL.
+    """
     stats = run_iteration(problems(2, 12), uniform_stub(CFG), CFG, sims=16, m=5, seed=1)
     values = stats.entropies()
-    assert values["entropy_prior_step1_start"] != values["entropy_target_step1_start"]
+    assert values["entropy_prior_step1_start"] != values["entropy_visits_step1_start"]
 
 
 # ---------------------------------------------------------------------------
@@ -193,15 +200,16 @@ def test_seeding_is_a_per_episode_fan_out_not_one_shared_stream() -> None:
     assert a.nodes == b.nodes
     assert a.evaluations == b.evaluations
     assert a.z_by_par_source == b.z_by_par_source
-    assert a.h_target_start == b.h_target_start
+    assert a.h_visits_start == b.h_visits_start
 
     # A different seed must move something. The quantities it can move are
     # narrower than they look: against `uniform_stub` the priors are FLAT, so
     # H_prior is a function of the legal-action count alone and is seed-blind by
-    # construction, and node counts are budget-driven. What the Gumbel draw
-    # actually moves is which actions get visited — so the discriminating
-    # quantities are the evaluation count and the visit-derived target entropy.
-    assert (a.evaluations, a.h_target_start) != (c.evaluations, c.h_target_start), (
+    # construction, node counts are budget-driven, and π′ equals the flat prior
+    # wherever the search holds no proof (F-54). What the Gumbel draw actually
+    # moves is which actions get visited — so the discriminating quantities are
+    # the evaluation count and the visit-share entropy.
+    assert (a.evaluations, a.h_visits_start) != (c.evaluations, c.h_visits_start), (
         "a different seed changed neither the evaluation count nor the visit "
         "distribution — the fan-out is not fanning out"
     )
@@ -375,6 +383,7 @@ def test_ring_visits_stores_action_indices_not_root_slots() -> None:
         actions=[(1, 2), (3, 0), (0, 5)],
         chosen=(3, 0),
         root_value=0.0,
+        improved=np.array([0.0, 1.0, 0.0], dtype=np.float32),
     )
     actions, counts = ring_visits(result, width=16, max_sites=192)
     assert actions.tolist() == [576, 194, 5]
@@ -393,7 +402,70 @@ def test_ring_visits_keeps_only_the_top_width() -> None:
         actions=[(0, 0), (2, 1), (4, 3)],
         chosen=(2, 1),
         root_value=0.0,
+        improved=np.array([0.0, 1.0, 0.0], dtype=np.float32),
     )
     actions, counts = ring_visits(result, width=2, max_sites=192)
     assert actions.tolist() == [2 * 192 + 1, 4 * 192 + 3]
     assert counts.tolist() == [7, 4]
+
+
+# ---------------------------------------------------------------------------
+# F-54: the target instruments — H(π′), H(visit share), KL(π′ ‖ prior)
+# ---------------------------------------------------------------------------
+
+
+def _root(visits, values):
+    from reckoner.search import SearchResult, SearchStats, _improved_target
+
+    visits = np.asarray(visits, np.int32)
+    values = np.asarray(values, np.float32)
+    n = len(visits)
+    return SearchResult(
+        visits,
+        values,
+        [(0, s) for s in range(n)],
+        (0, 0),
+        float(values.max()),
+        SearchStats(),
+        root_priors=np.full(n, 1 / n),
+        improved=_improved_target(np.zeros(n), visits, values, 0.0, CFG),
+    )
+
+
+def test_the_target_entropy_is_pi_prime_and_the_visit_entropy_is_the_share() -> None:
+    from reckoner.runner import _Live, _record
+
+    result = _root([19, 3, 3, 3, 20], [-1, -1, -1, -1, 0])
+    stats = IterationStats()
+    _record(stats, result, _Live(problem=None, expr=None, rng=None, index=0))  # type: ignore[arg-type]
+    assert stats.h_target_start == [entropy(result.improved)]
+    assert stats.h_visits_start == [entropy(result.visit_share())]
+    # H(π′) = 4 · e^-70 · (70 + log(1 + 4e^-70)) + ... ≈ 1.11e-28: by hand, not a tolerance.
+    assert stats.h_target_start[0] == pytest.approx(4 * np.exp(-70.0) * 70.0, rel=1e-3)
+    assert stats.h_visits_start[0] > 1.0
+
+
+def test_kl_separates_a_root_that_taught_something_from_one_that_did_not() -> None:
+    """Mute vs live: two roots with the SAME visit profile, one holding proofs.
+    The visit-share entropy cannot tell them apart; KL can, and is exactly zero
+    on the root where π′ is the prior."""
+    from reckoner.runner import _Live, _record
+
+    nothing = _root([19, 3, 3, 3, 20], [0, 0, 0, 0, 0])
+    proofs = _root([19, 3, 3, 3, 20], [-1, -1, -1, -1, 0])
+    a, b = IterationStats(), IterationStats()
+    live = _Live(problem=None, expr=None, rng=None, index=0)  # type: ignore[arg-type]
+    _record(a, nothing, live)
+    _record(b, proofs, live)
+    assert a.h_visits_start == b.h_visits_start
+    assert a.kl_start == [0.0]
+    assert b.kl_start[0] == pytest.approx(np.log(5), rel=1e-6)
+    assert a.h_target_start != b.h_target_start
+
+
+def test_kl_divergence_refuses_mass_the_prior_does_not_have() -> None:
+    from reckoner.runner import kl_divergence
+
+    assert kl_divergence(np.array([0.5, 0.5]), np.array([0.5, 0.5])) == 0.0
+    with pytest.raises(ValueError, match="no"):
+        kl_divergence(np.array([0.5, 0.5]), np.array([1.0, 0.0]))

@@ -26,21 +26,29 @@ field                layout                                      bytes
 ``goal``             int8                                              1
 ``ring_format``      int16 — the format version this record was written under   2
 ``absent_mask``      uint32 — one bit per runtime-absent field           4
-**per record**                                                    **1558**
+``improved_actions`` 128 × int32 — π′'s top-128 actions, dense      512
+                     indices (F-54, format 3)
+``improved_probs``   128 × float32 — their π′ mass                    512
+``improved_tail``    float32 — π′ mass NOT stored, exact               4
+**per record**                                                    **2586**
 ===================  ==========================================  =======
 
-At ``train.replay_capacity`` = 500,000 that is **0.72 GiB**, against ~15 GiB of
-realistically free host RAM (AGENTS.md §3, and swap is already 3.4 GiB deep so an
-OOM-adjacent allocation thrashes rather than degrades). The provisional capacity
-clears with two orders of margin, so it is **decided at 500,000** rather than
-re-guessed. 200,000 would be 0.29 GiB and 100,000 would be 0.14 GiB, recorded so a
-later reduction is a choice with a number attached.
+At ``train.replay_capacity`` = 500,000 that is **1.20 GiB** (0.72 GiB before
+F-54's π′ fields), against ~45 GiB of realistically free host RAM since the
+2026-08-16 rebalance (AGENTS.md §3). The capacity clears with more than an order
+of margin, so it stays **decided at 500,000**. 200,000 would be 0.48 GiB and
+100,000 would be 0.24 GiB, recorded so a later reduction is a choice with a
+number attached.
 
 The visit vector is stored **sparsely** — the top-``gumbel_m`` root actions and
-their counts — not as a dense 1,344-wide distribution. Dense would be 5,376 B per
-record, 3.5× the whole record, for a vector that is zero everywhere except at most
-``m`` entries. The search considers at most ``m`` root actions by construction, so
-this is lossless rather than lossy.
+their counts — not as a dense 1,344-wide distribution. The search visits at most
+``m`` root actions by construction, so the visit layout is lossless.
+
+**π′ is different (F-54):** it has mass on every legal action, so its top-128
+store is lossless only up to 128 legal actions. Wider roots are written with the
+dropped mass recorded exactly in ``improved_tail``, and ``ring_batch`` sits a row
+out rather than train on a cropped target when that mass exceeds
+``IMPROVED_TAIL_TOL``.
 
 Two era systems exist. They are not the same one
 -------------------------------------------------
@@ -97,11 +105,31 @@ from reckoner.dataset import sample_indices
 #:
 #: 2 (F-53): ``visit_actions`` hold dense action indices. Format-1 records hold
 #: root slot positions there, and the layout is otherwise identical.
-RING_FORMAT = 2
+#: 3 (F-54): adds ``improved_actions`` / ``improved_probs`` / ``improved_tail`` —
+#: the Gumbel π′ over every legal root action, top ``IMPROVED_SLOTS`` by mass, with
+#: the mass not stored recorded exactly. Appended fields; nothing redefined.
+RING_FORMAT = 3
 
 #: Visit slots the record layout provides. Part of RING_FORMAT: widening this is
 #: a format bump, because every stored record's stride changes with it.
 VISIT_SLOTS = 16
+
+#: π′ slots per record (F-54). π′ has mass on EVERY legal action, so unlike the
+#: visit share it is not bounded by ``gumbel_m``. Sized by width, not by how
+#: peaked any network is: the smallest multiple of 32 at least 1.5 × the widest
+#: root measured on reached states (83 legal actions; median 27, p90 48, p99 69).
+#: A record wider than this is still written, its dropped mass recorded, and it
+#: sits out of training if that mass exceeds ``IMPROVED_TAIL_TOL``. Part of the
+#: format: widening it is a format bump.
+IMPROVED_SLOTS = 128
+
+#: π′ mass a record may drop and still train. Above it the row sits out, counted
+#: — never cropped, never renormalised (the StateTooLarge precedent).
+IMPROVED_TAIL_TOL = 1e-6
+
+#: |Σ probs + tail − 1| allowed at the write and read boundaries: float32 rounding
+#: over at most 128 entries, with two orders of margin.
+IMPROVED_MASS_TOL = 1e-5
 
 #: Known ``par_source`` values, as a stored enum. Order is part of the format:
 #: appending is a format bump, reordering is a corruption.
@@ -156,6 +184,11 @@ _FIELDS_SINCE: tuple[RingField, ...] = (
     RingField("steps_remaining"),
     RingField("depth"),
     RingField("goal"),
+    # --- format 3 (F-54). APPENDED, never inserted: a field's position is its
+    # absent_mask bit, so an insertion would re-map every saved ring's bits.
+    RingField("improved_actions", since=3),
+    RingField("improved_probs", since=3),
+    RingField("improved_tail", since=3),
 )
 
 _FIELD_INDEX = {f.name: i for i, f in enumerate(_FIELDS_SINCE)}
@@ -190,6 +223,10 @@ class RingError(ValueError):
 #: One implementation, in `reckoner.absence` — a second copy of an absence type
 #: is the two-implementations hazard the one-formatter law exists to prevent.
 __all__ = [
+    "IMPROVED_MASS_TOL",
+    "IMPROVED_SLOTS",
+    "IMPROVED_TAIL_TOL",
+    "NO_IMPROVED_TARGET",
     "STALE_TARGETS",
     "Absent",
     "AbsenceError",
@@ -242,6 +279,9 @@ class ReplayRing:
         self.goal = np.zeros(capacity, dtype=np.int8)
         self.record_format = np.zeros(capacity, dtype=np.int16)
         self.absent_mask = np.zeros(capacity, dtype=np.uint32)
+        self.improved_actions = np.zeros((capacity, IMPROVED_SLOTS), dtype=np.int32)
+        self.improved_probs = np.zeros((capacity, IMPROVED_SLOTS), dtype=np.float32)
+        self.improved_tail = np.zeros(capacity, dtype=np.float32)
 
     # -- writing ----------------------------------------------------------
 
@@ -264,6 +304,9 @@ class ReplayRing:
         steps_remaining: int,
         depth: int,
         goal: int,
+        improved_actions: np.ndarray,
+        improved_probs: np.ndarray,
+        improved_tail: float,
         absent: dict[str, str] | None = None,
     ) -> int:
         """Store one step. Returns its slot.
@@ -299,6 +342,24 @@ class ReplayRing:
                 raise RingError(f"{name}: absence needs a reason")
             mask |= 1 << _FIELD_INDEX[name]
 
+        improved_actions = np.asarray(improved_actions)
+        improved_probs = np.asarray(improved_probs)
+        if improved_actions.shape != (IMPROVED_SLOTS,) or improved_probs.shape != (IMPROVED_SLOTS,):
+            raise RingError(
+                f"π′ fields must be {IMPROVED_SLOTS} wide; got actions "
+                f"{improved_actions.shape}, probs {improved_probs.shape}"
+            )
+        if not (np.isfinite(improved_probs).all() and np.isfinite(improved_tail)):
+            raise RingError("π′ carries a non-finite value")
+        if (improved_probs < 0).any() or improved_tail < 0:
+            raise RingError("π′ carries negative mass")
+        total = float(improved_probs.astype(np.float64).sum()) + float(improved_tail)
+        if abs(total - 1.0) > IMPROVED_MASS_TOL:
+            raise RingError(
+                f"π′ stored mass plus tail is {total!r}, not 1 within {IMPROVED_MASS_TOL}: "
+                "a target that does not sum to one is not a distribution"
+            )
+
         i = self.cursor
         n = int(len(tokens))
         s = int(len(site_positions))
@@ -320,6 +381,9 @@ class ReplayRing:
         self.steps_remaining[i] = steps_remaining
         self.depth[i] = depth
         self.goal[i] = goal
+        self.improved_actions[i] = improved_actions
+        self.improved_probs[i] = improved_probs
+        self.improved_tail[i] = improved_tail
         self.record_format[i] = self.ring_format
         self.absent_mask[i] = mask
 
@@ -362,6 +426,9 @@ class ReplayRing:
             "steps_remaining": int(self.steps_remaining[slot]),
             "depth": int(self.depth[slot]),
             "goal": int(self.goal[slot]),
+            "improved_actions": self.improved_actions[slot].copy(),
+            "improved_probs": self.improved_probs[slot].copy(),
+            "improved_tail": float(self.improved_tail[slot]),
         }
         for name in raw:
             absent = self._absence(slot, name)
@@ -419,6 +486,9 @@ class ReplayRing:
         "goal",
         "record_format",
         "absent_mask",
+        "improved_actions",
+        "improved_probs",
+        "improved_tail",
     )
 
     def save(self, path: Path) -> dict:
@@ -430,6 +500,12 @@ class ReplayRing:
         """
         path.mkdir(parents=True, exist_ok=True)
         for name in self.ARRAYS:
+            # Write the layout of the format this ring DECLARES: a field added in
+            # a later format is not part of it, and load() refuses a ring whose
+            # files claim otherwise.
+            spec = _FIELD_MAP.get(name)
+            if spec is not None and spec.since > self.ring_format and spec.since_reason is None:
+                continue
             getattr(self, name).tofile(path / f"{name}.bin")
         meta = {
             "ring_format": self.ring_format,
@@ -441,6 +517,7 @@ class ReplayRing:
             "gumbel_m": self.cfg.search.gumbel_m,
             "par_sources": list(PAR_SOURCES),
             "bytes_per_record": bytes_per_record(self.cfg),
+            "improved_slots": IMPROVED_SLOTS,
         }
         (path / "meta.json").write_text(json.dumps(meta, indent=2, sort_keys=True) + "\n")
         return meta
@@ -478,10 +555,35 @@ class ReplayRing:
         # first bump (F-53) it would have made every new, correct record read as
         # era-absent. The layouts of formats 1 and 2 are identical; a future bump
         # that changes the layout fails the reshape below, loudly.
+        if meta["ring_format"] >= 3 and meta.get("improved_slots") != IMPROVED_SLOTS:
+            raise RingError(
+                f"ring stores {meta.get('improved_slots')} π′ slots; this code's layout "
+                f"is {IMPROVED_SLOTS}. Widening is a format bump, not a reinterpretation."
+            )
         ring = cls(meta["capacity"], cfg)
         for name in cls.ARRAYS:
             target = getattr(ring, name)
-            data = np.fromfile(path / f"{name}.bin", dtype=target.dtype)
+            source = path / f"{name}.bin"
+            spec = _FIELD_MAP.get(name)
+            added_later = (
+                spec is not None and spec.since > meta["ring_format"] and spec.since_reason is None
+            )
+            if added_later:
+                # A field ADDED in a later format cannot be in an older ring. Its
+                # array stays zero and every record reads it era-absent through
+                # ``record_format`` — the absence is computed, never the zero. A
+                # field REDEFINED later (it carries a ``since_reason``, like F-53's
+                # visit_actions) did exist then, is loaded, and reads era-absent
+                # the same way.
+                if source.exists():
+                    raise RingError(
+                        f"a ring_format {meta['ring_format']} ring cannot contain "
+                        f"{name}, which arrived in {spec.since}"
+                    )
+                continue
+            if not source.exists():
+                raise RingError(f"ring_format {meta['ring_format']} ring is missing {name}.bin")
+            data = np.fromfile(source, dtype=target.dtype)
             target[...] = data.reshape(target.shape)
         ring.cursor = meta["cursor"]
         ring.count = meta["count"]
@@ -493,6 +595,11 @@ class ReplayRing:
 STALE_TARGETS = (
     "their visit_actions predate ring_format 2: they are root slot positions, not actions (F-53)"
 )
+
+
+#: Why a pre-format-3 record cannot train the policy under ``'improved'``, and
+#: why a pre-format-3 ring is never resumed into (F-54).
+NO_IMPROVED_TARGET = "they predate ring_format 3 and carry no π′ (F-54)"
 
 
 def era_absent_on_disk(path: Path, name: str) -> tuple[int, int]:
@@ -527,4 +634,7 @@ def bytes_per_record(cfg: Config) -> int:
         + 1  # goal
         + 2  # record_format
         + 4  # absent_mask
+        + IMPROVED_SLOTS * 4  # improved_actions
+        + IMPROVED_SLOTS * 4  # improved_probs
+        + 4  # improved_tail
     )

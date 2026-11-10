@@ -40,6 +40,10 @@ from typing import Any
 
 import yaml
 
+#: The policy targets ``train.policy_target`` may name (F-54). ``ring_batch``
+#: dispatches on exactly these, and a test pins that the two sets are equal.
+POLICY_TARGETS: tuple[str, ...] = ("improved", "visits")
+
 # ---------------------------------------------------------------------------
 # Sections
 # ---------------------------------------------------------------------------
@@ -262,6 +266,16 @@ class TrainConfig:
     train_steps_per_iter: int = 400
     replay_capacity: int = 500_000
 
+    # [spec §1, §5; F-54 — DECIDED 2026-11-10 by the principal's rollout ruling,
+    # verbatim in FINDINGS F-54] Which distribution ring_batch trains the policy
+    # toward. 'improved' = the Gumbel π′, softmax(logits + σ(completed Q)) over
+    # every legal root action, unvisited actions completed by v_mix. 'visits' =
+    # the Sequential-Halving visit share every ring row trained toward through M1,
+    # kept ONLY as the control arm for a later A/B. The ring stores both; only
+    # ring_batch and train_on_ring read this. A YAML written before F-54 has no
+    # such key and loads as 'improved' — re-running one needs 'visits' explicitly.
+    policy_target: str = "improved"
+
     # [provisional — chunk 6/8] Loss weights. ``steps`` is the auxiliary
     # regression, masked to solved episodes.
     policy_loss_weight: float = 1.0
@@ -465,6 +479,13 @@ def validate(cfg: Config) -> None:
             f"{cfg.train.lr_schedule!r}. The plan names those two; a third curve "
             "is a decision, not a typo, and belongs in a round."
         )
+    if cfg.train.policy_target not in POLICY_TARGETS:
+        raise ValueError(
+            f"train.policy_target must be one of {list(POLICY_TARGETS)}; got "
+            f"{cfg.train.policy_target!r}. 'improved' is spec §5's π′ (F-54); "
+            "'visits' is the pre-F-54 visit share, kept as the control arm. A third "
+            "target is a lever, not a typo, and belongs in a round."
+        )
     if cfg.train.lr_warmup_steps < 0:
         raise ValueError(f"train.lr_warmup_steps must be >= 0; got {cfg.train.lr_warmup_steps}")
     if not 0.0 <= cfg.league.par_from_pool_frac <= 1.0:
@@ -643,5 +664,15 @@ def config_fingerprint(cfg: Config) -> str:
     the git SHA, so a run's rows can always be read against the config that
     produced them.
     """
-    canonical = yaml.safe_dump(_dataclass_to_dict(cfg), default_flow_style=False, sort_keys=True)
+    return fingerprint_of(_dataclass_to_dict(cfg))
+
+
+def fingerprint_of(tree: dict) -> str:
+    """The fingerprint of a plain config dict — the one implementation.
+
+    Split out so a fingerprint can be computed for a config that no dataclass
+    can represent any more: F-54's proof that its move changed exactly one key
+    deletes that key from today's dict and recovers M1's recorded digest.
+    """
+    canonical = yaml.safe_dump(tree, default_flow_style=False, sort_keys=True)
     return hashlib.sha256(canonical.encode()).hexdigest()

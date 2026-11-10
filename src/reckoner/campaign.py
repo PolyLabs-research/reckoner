@@ -77,7 +77,19 @@ from reckoner.vocab import VOCAB_VERSION
 REPO = Path(__file__).resolve().parents[2]
 SUITES = REPO / "runs" / "suites"
 
-# --- the two fingerprints, recorded in PREREG-m1 §M1-A2 §1, MOVED by M1-A4 ----
+# --- the two fingerprints. MOVED TWICE since M1, one key each time ------------
+# 1. `campaign.device` (2026-08-22, after F-51):  ccfec081f4eb1604… / fd53b63f7502a4b1…
+# 2. `train.policy_target` at 'improved', the Gumbel π′ target (F-54, 2026-11-10):
+#    the pair pinned below.
+# A test proves each move was exactly its key: deleting `train.policy_target`
+# from today's config recovers pair 1, and deleting `campaign.device` as well
+# recovers M1's. REGISTERED BY NO PREREG YET — M1 is closed, and the next
+# campaign's PREREG records the pinned pair before launch.
+#
+#   M1 (closed; PREREG-m1 §M1-A2 §1, moved by M1-A4):
+#       8443847bb8c41218… / c8aa1fccd1c97dd8…  — kept as M1_ERA_FINGERPRINTS
+#       below for the scripts that verify M1's own rows.
+#
 # M1-A4 moved the campaign config ONCE, carrying every decision on that page:
 # rehearsal_frac 0.0 -> 0.65, the two `ladder.sympy_*` deletions, and three role
 # changes at unchanged value (interop EXERCISED, problems_per_pass as the
@@ -89,8 +101,8 @@ SUITES = REPO / "runs" / "suites"
 # The driver runs TWO profiles and therefore makes TWO assertions, each pinned
 # where its profile acts (D-A2 §2). A single startup check would compare one
 # profile's value against a run that also uses the other.
-CAMPAIGN_FINGERPRINT = "ccfec081f4eb16040c5587cc738e0f1c4ccbce0fcaad0e56eb3c55aa08ebb5f6"
-EVAL_FINGERPRINT = "fd53b63f7502a4b106461ab1ce1f1fbab982e5d3df2ff5a07bc941c5760912de"
+CAMPAIGN_FINGERPRINT = "1a2f3aade5823b92c4a839070513e0d8d3461340ce030f8c9d6056e40292436a"
+EVAL_FINGERPRINT = "15f63cc21b4e008103d7f4d6b7947f050392061f8a8e3af099e892ca6428ef15"
 
 #: The values M1 ACTUALLY RAN UNDER, kept because they are quoted on pages and a
 #: pin that moves must not silently rewrite what a completed run was measured at.
@@ -100,6 +112,19 @@ M1_ERA_FINGERPRINTS = {
     "eval": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
     "_moved_by": "campaign.device, fingerprinted 2026-08-22 after F-51",
 }
+
+#: The pair between the two moves: M1's config plus `campaign.device`, before
+#: F-54 added `train.policy_target`. No campaign ran under it. Kept because the
+#: one-key proof needs both ends of each move as literals, never recomputed.
+DEVICE_ERA_FINGERPRINTS = {
+    "campaign": "ccfec081f4eb16040c5587cc738e0f1c4ccbce0fcaad0e56eb3c55aa08ebb5f6",
+    "eval": "fd53b63f7502a4b106461ab1ce1f1fbab982e5d3df2ff5a07bc941c5760912de",
+    "_moved_by": "train.policy_target, added 2026-11-10 by F-54",
+}
+
+#: M1's pair under the names the M1-era scripts import. One literal, two names.
+M1_CAMPAIGN_FINGERPRINT = M1_ERA_FINGERPRINTS["campaign"]
+M1_EVAL_FINGERPRINT = M1_ERA_FINGERPRINTS["eval"]
 
 #: PREREG-m1 §4: both indistinguishability floors, on the 1,200-problem instrument.
 NO_REGRESS = {48: 1188, 1: 1167}
@@ -224,7 +249,7 @@ def assert_campaign_profile(cfg: Config) -> str:
     got = config_fingerprint(cfg)
     if got != CAMPAIGN_FINGERPRINT:
         raise CampaignRefusal(
-            f"campaign config fingerprint {got} != PREREG-m1's recorded "
+            f"campaign config fingerprint {got} != the registered "
             f"{CAMPAIGN_FINGERPRINT}. This config is not the one the campaign was "
             "registered against, so the run would not be the registered run."
         )
@@ -269,7 +294,8 @@ def assert_eval_profile(cfg: Config) -> str:
             f"eval profile fingerprint {got} != the pinned {EVAL_FINGERPRINT}; "
             f"this pass is not comparable to its baseline. (M1 ran under "
             f"{M1_ERA_FINGERPRINTS['eval']}; the pin moved when "
-            f"{M1_ERA_FINGERPRINTS['_moved_by']}.)"
+            f"{M1_ERA_FINGERPRINTS['_moved_by']}, and again when "
+            f"{DEVICE_ERA_FINGERPRINTS['_moved_by']}.)"
         )
     return got
 
