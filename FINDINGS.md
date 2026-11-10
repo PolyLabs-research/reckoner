@@ -2799,3 +2799,103 @@ success that both survive a halving round are taught at the same share.
 
 The fix follows in later commits, tests first, and its post-fix reading is
 appended here.
+
+### Design (2026-11-10, before code): decisions from an independent panel
+
+Three independent designs (Gumbel-faithful, house-law minimal, failure-mode
+hunter) were scored by two judges and merged into one spec. These are the
+decisions, recorded before any code is written.
+
+**D1 — Unvisited root actions are completed with v_mix** (Danihelka et al. 2022,
+eq. 33): (v̂ + ΣN · Σ_visited softmax(logits)_a q_a) / (1 + ΣN), where v̂ is the
+network's own root evaluation.
+
+| alternative | why rejected |
+|---|---|
+| `tree.value[root]` | Max-backed. One +1 proof completes every unexplored action at +1, so π′ falls back to the prior. |
+| v̂ alone | 0 while the value head is silent. On a cap−1 losing root wider than m, it put 0.8 of π′ on four never-examined losses; v_mix put 1.9e-24 there. |
+
+Supporting measurement, 150 sampled reached states with a random-init network
+(`scratchpad/pi/design_probe2.py`):
+
+| completion | π′ mass on unvisited actions | π′ argmax on an unvisited action |
+|---|---:|---:|
+| `tree.value[root]` or v̂ | 4.0% | 6 / 150 |
+| v_mix | 0.01% | 0 / 150 |
+
+Implementation notes:
+- One formula, softmax(logits + σ(completed)), is shared with `_select`. Each
+  call site passes its own completion, so the search stays bit-identical.
+- Reckoner deliberately departs from TinyAlphaZero-v2 here. TAZ completes with
+  a visit-weighted mean, which would bring F-42's schedule back into the target,
+  and a max tree keeps no ΣW.
+
+**D2 — Exactness.**
+- Visited is decided by `visits > 0` alone. The −1.0 initialiser is also a
+  legitimate proven-loss value, so it cannot serve as the mask.
+- A tripwire raises unless a root child exists exactly where it has visits.
+- Terminal children keep their exact z.
+- π′ is computed in float64 and stored as float32, once.
+
+**D3 — Storage.**
+- `RING_FORMAT` 3 appends three fields:
+  - `improved_actions`: int32[128], dense action indices;
+  - `improved_probs`: float32[128];
+  - `improved_tail`: the float64 sum of the π′ mass not stored.
+- They are appended at the end of the field list, because `absent_mask` bits are
+  field positions.
+- **K = 128**, as the smallest multiple of 32 that is at least 1.5 × the largest
+  legal-action count seen on reached states (83: median 27, p90 48, p99 69). The
+  rule is tied to width, not to how peaked a network happens to be.
+- A record whose tail exceeds 1e-6 sits out of training and is counted, the
+  StateTooLarge precedent: never cropped, never renormalised.
+- The visit fields are kept byte-identical, so one ring serves both arms.
+- Size: 2,586 B per record, 1.20 GiB at 500,000 records.
+- A format-2 ring loads with its π′ fields era-absent.
+  - Under `improved`, `train_on_ring` refuses it.
+  - Under `visits`, it trains as before.
+  - `check_resumable` refuses a pre-format-3 ring under both arms, because the
+    fingerprint moved.
+
+**D4 — API.**
+- `SearchResult` gains `improved`: required, keyword-only, slot-indexed float32.
+- The mislabelled `improved_policy()` is renamed `visit_share()`, with no alias.
+
+**D5 — Instruments.** `SCHEMA_ERA` goes from 3 to 4.
+- `entropy_target_*` is redefined to H(π′). It moves to `since=4` with a reason;
+  its schema text, "H of the search-improved target", becomes true.
+- New columns carry the old reading and add the instrument that moves while the
+  value head is silent:
+  - `entropy_visits_*`: H(visit share);
+  - `kl_improved_prior_*`: KL(π′‖prior);
+  - `ring_improved_truncated`: a premise-zero counter.
+- Two runner tests assumed H(target) ≠ H(prior). Under π′, the two are exactly
+  equal wherever search found nothing, which is correct. They move to the
+  visit-share column and gain π′ cases in both polarities.
+
+**D6 — Governance.**
+- `train.policy_target`: `improved` by default, `visits` as the control arm,
+  checked by `validate()`, with a line in `default.yaml`.
+- Both fingerprints move once. A test proves that deleting only that key
+  recovers M1's pair.
+- M1's pair is kept as literals for the M1-era script that verifies M1 rows.
+- `policy_target` is read only by `ring_batch` and `train_on_ring`. A test pins
+  that it is never read inside the measurement closure.
+- `evaluate_head` is pinned to the `visits` population, so the policy lever
+  cannot move the value switch's criterion.
+- **The control arm's identity with pre-change training is shown by a
+  cross-commit digest script, not argued.**
+
+**Restating a sentence above, under v_mix.** "π′ departs from the prior only
+where the search holds a proof" holds among visited actions. A visited proof
+also shifts every unvisited action, through v_mix. That is intended: an unknown
+action outranks a proven loss.
+
+**Registered and not done here, because each would change the search (a second
+lever) or is a later round:**
+- `_select` still completes with the max-backed node value;
+- an unvisited root action that is itself terminal gets v_mix, not its exact z;
+- with sims < m, the −1.0 sentinel enters halving;
+- σ's temperature (`c_visit` 50, `c_scale` 1.0, both still provisional) becomes
+  load-bearing;
+- the next PREREG re-declares the funnel on `kl_improved_prior_*`.
