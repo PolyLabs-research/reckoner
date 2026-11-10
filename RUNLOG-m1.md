@@ -144,3 +144,19 @@ from**. Its +0.18 is real. Its cause is open: value and steps trunk gradients,
 supervised rehearsal, or the systematic push toward `eval_add` at low sites.
 
 A resume of this run is refused by code from ring_format 2 onward.
+
+**Amendment (2026-11-10, F-41 review).** Two lines of the erratum above are
+corrected.
+
+- "Of the remainder, more trained the wrong legal action than the right one" is
+  withdrawn. It was a pooled uniform-stub reading over all ten suites. In the
+  stratum matching M1's training problems (BFS par 1–6), correct exceeds
+  wrong-legal: 6.00% against 4.61%, with 89.39% dropped. The split under M1's own
+  network is unmeasured.
+- "Under a trained network … 91.5% of states" named the wrong mechanism. The
+  correct statement is network-independent: on 1,094 of 1,200 `solve_in` start
+  states, no storable slot lands on a legal cell, so the whole target was dropped
+  whatever the network.
+
+The conclusion is unchanged. M1 improved while roughly 90% of its ring's policy
+target was discarded.

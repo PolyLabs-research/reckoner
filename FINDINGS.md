@@ -2321,6 +2321,14 @@ The 200/400-step pair is also not matched in learning rate:
 Re-measure under correct targets with an LR-controlled pair before relying on
 either reading.
 
+**Amendment (2026-11-10, F-41 review).** The sentence above saying more of the
+surviving mass "pointed at a wrong legal action than at the right one" is
+withdrawn. It was the probe's pooled uniform-stub reading over all ten suites. In
+the stratum that matches ring-0 (BFS par 1–6), correct exceeds wrong-legal: 6.00%
+against 4.61%, with 89.39% dropped. What stands is that roughly 90% of the target
+was dropped. Also, ring-0 must be regenerated under the fixed writer before this
+pair is re-run; `train_on_ring` now refuses the old ring.
+
 ---
 
 ## F-38 — A watchdog whose only output is a kill is indistinguishable from a healthy run
@@ -2613,3 +2621,98 @@ defect.
    and `legal_actions` order is part of the interface under `RULESET_VERSION 1`, so
    each slot maps back to its action exactly. Repair before any reuse rather than
    discard. The resume refusal deliberately blocks reusing it unrepaired.
+
+### Amendment (2026-11-10, after independent review): four corrections, a defect in the fix, and the post-fix reading
+
+The fix at `23939c6` was reviewed through four lenses: consumers, ring format and
+resume, the loss detector, and the tests with this record. Each medium or high
+finding then went to its own skeptic. Corrections are appended here, not edited
+into the text above.
+
+**1. The direction of the surviving mass was a pooled reading, and it does not
+transfer to M1.**
+- The 2.58 / 4.17 / 93.25 split pools all ten suites under the uniform stub, and
+  1,920 of its 3,365 records are scripted pars 7–10.
+- M1's ring and ring-0 were built on `train_100k`: BFS par 1–6 only.
+- Re-measured by stratum, with the pre-fix writer imported from an export of
+  `1fc2473` (the probe records the source tree it imported):
+
+| stratum | records | correct | wrong legal | dropped |
+|---|---:|---:|---:|---:|
+| `bfs`, par 1–6 | 1,445 | **6.00%** | 4.61% | 89.39% |
+| `scripted`, par 7–10 | 1,920 | 0.00% | 3.84% | 96.16% |
+
+In the stratum that stands in for M1, **correct exceeds wrong-legal**. So "more
+pointed at the wrong legal action than at the right one", and "most of it pointed
+the wrong way", are **withdrawn as statements about M1, ring-0 and F-37's arms**.
+
+What holds in every cut is that **89–96% of the mass was dropped**, and that what
+survived included a systematic push toward `eval_add` at low sites. Both strata
+are still uniform-stub readings. The split under the trained anchor is
+unmeasured: the anchor is not in this clone.
+
+**2. "Under a trained network … 91.5% of states" named the wrong mechanism.**
+- At `sims 48`, `gumbel_m 16`, root visit shares are set by the Sequential
+  Halving schedule, so "visits concentrate on one move" does not describe this
+  search.
+- The correct statement is network-independent. On **1,094 of the 1,200**
+  `solve_in` start states (91.2%), plus 403 of the 800 `scripted_in` ones, **no
+  storable slot lands on a legal cell at all**. The whole target is dropped
+  whatever the network and whatever the budget.
+- The 1,098 / 1,200 optimal-move reading stands as what it measured: where BFS's
+  optimal first move lands.
+
+**3. "Writer and reader were never tested together" was false.**
+`a_filled_ring` → `train_on_ring` ran them together (`test_train.py:229-291`, which
+needs `train_100k`). Nothing compared the target `ring_batch` built with the search
+that produced it. That is rider (b), a mute instrument, not a missing one. The
+rule's wording already asks for the comparison: "tested together … against ground
+truth captured from the producer".
+
+**4. The fix commit overstated its tests.** `23939c6` says every new test failed
+pre-fix. The refusal-side tests did. The two accepting-polarity tests pass on both
+sides, which is their job:
+- `test_policy_loss_accepts_a_target_that_is_entirely_legal`;
+- `test_resume_accepts_a_ring_written_in_the_current_format`.
+
+**A defect in the fix, confirmed by three lenses and fixed at `d8ea7af`.**
+- *What was wrong.* The refusal lived only in `resume`. `train_on_ring` on a
+  pre-fix ring sat every record out and returned `steps == 0` silently.
+  `sweep_rehearsal_frac.py` and `sweep_verify.py` load ring-0 directly, which is
+  exactly what standing action 1 re-runs. `sweep_verify` would have printed
+  identical digests and blamed the steps knob.
+- *Now.* `train_on_ring` raises (`RingError`, F-41) before it draws from any RNG.
+  `resume`'s check moved into a read-only `check_resumable`, which reads only the
+  meta and the per-record format column. `scripts/campaign.py` calls it before it
+  overwrites `campaign_summary.json`. That was the review's ordering finding: the
+  refusal had arrived after a completed run's summary was already replaced.
+- *Evidence.* The new refusal test fails against `23939c6` ("DID NOT RAISE
+  RingError"), and its accepting partner passes there.
+
+**Post-fix reading.** Same probe, `d8ea7af`, clean tree, same 200 problems and
+3,365 records:
+
+| | correct | wrong legal | dropped |
+|---|---:|---:|---:|
+| stored visits (48,618, the same total as pre-fix) | **48,618** | 0 | 0 |
+| visit mass, both strata | **100%** | 0 | 0 |
+
+- Target mass on legal cells is 1.0 in every record (mean and minimum).
+- The target's argmax is a max-visit action in **3,365 / 3,365** records, against
+  353 / 3,365 before.
+
+**Suite in this cloud clone at `d8ea7af`.** 890 passed, 22 failed, 24 skipped.
+The 22 failures are identical, by name, to the baseline's at `1a434ac` (869
+passed). Every one needs gitignored data absent from a clone
+(`runs/data/*/tokens.i32`, `runs/phase1/phase1.pt`), so the data-dependent ring
+and supervision tests still need a run on the box that holds the data.
+
+**Standing action 1, amended.** Regenerate ring-0 under the fixed writer
+(`scripts/ring0_replay.py`) before re-running the sweep. `train_on_ring` now
+refuses the old one by name.
+
+**Standing action 3, new.** The policy loss now raises on supervision rows too.
+`test_batch_targets_are_legal_actions` checks 64 sampled rows of `phase1_train`'s
+311,741. A campaign samples far more of them, so a raise on a supervised batch
+would be an older dataset defect surfacing, not this fix misfiring. A full-dataset
+legality pass on the box would settle it in advance.
