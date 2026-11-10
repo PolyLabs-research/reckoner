@@ -315,3 +315,20 @@ Fields **deleted**: the eight unbacked keys in §4.
 
 **The campaign fingerprint moves once, here, and PREREG-m1's recorded value must
 be updated with it.**
+
+---
+
+## Erratum (2026-11-10, F-41)
+
+§5's screen selected `rehearsal_frac = 0.65` from arms whose **ring** policy
+targets were in the wrong coordinates:
+- 93.25% of stored visit mass sat on illegal cells and was dropped by the loss;
+- 4.17% trained the wrong legal action;
+- 2.58% trained the right one (`FINDINGS.md` F-41).
+
+The supervised rows were the only real policy signal in every arm. That fits top-1
+being pinned at the anchor's 1192/1229 for `f ≥ 0.65`.
+
+The selection rule was applied as registered, and its arithmetic stands. What it
+selected among was not the treatment it was meant to compare. Re-run the screen
+under correct targets before 0.65 is treated as tuned rather than inherited.

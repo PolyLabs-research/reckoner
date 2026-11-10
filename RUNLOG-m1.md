@@ -123,3 +123,24 @@ unavailable**, and F-37's immediate-forgetting result carries that weight instea
 Recorded as **F-40**: attempt 1's ring became load-bearing when a page cited it as
 the counterfactual arm, and registration follows creation rather than citation, so
 nothing ever registered it.
+
+---
+
+## Erratum (2026-11-10, F-41)
+
+**Every number above stands as a measurement of its checkpoint.** That includes
+P1's 101/600 → 209/600, CI [0.1367, 0.2217], the floors, and top-1 0.9699. The
+instruments read the network's priors in the correct coordinates.
+
+**What the campaign trained on did not stand.** Throughout M1, the replay ring
+stored root slot positions where `ring_batch` read dense action indices.
+- 93.25% of the ring's visit mass was dropped as illegal.
+- Of the remainder, more trained the wrong legal action than the right one.
+- Under a trained network, the target was discarded entirely in 91.5% of states
+  (`FINDINGS.md` F-41).
+
+M1 therefore improved **without the policy target the loop exists to learn
+from**. Its +0.18 is real. Its cause is open: value and steps trunk gradients,
+supervised rehearsal, or the systematic push toward `eval_add` at low sites.
+
+A resume of this run is refused by code from ring_format 2 onward.

@@ -2304,6 +2304,23 @@ is the finding. Reporting top-1 as a raw count beside the ratio is what made the
 difference visible, and it was added precisely because an implausible
 intermediate deserves checking rather than believing.
 
+### Erratum (2026-11-10, F-41)
+
+Both arms of this finding were measured while the ring's policy targets sat in the
+wrong coordinates. At `f = 0.00`, ring rows carried about 7% of a policy gradient,
+and more of that pointed at a wrong legal action than at the right one (F-41).
+"Forgetting is essentially immediate" is therefore **unexplained under a defect**,
+not established. It describes training on value and steps gradients plus an
+`eval_add`-biased policy push, not training on search targets.
+
+The 200/400-step pair is also not matched in learning rate:
+- the 200-step arm is pure warmup and ends at the peak, 2.0e-4;
+- the 400-step arm ends at 1.23e-8;
+- their LR integrals are 0.0201 and 0.0402 (`lr_at`, `lr_warmup_steps 200`).
+
+Re-measure under correct targets with an LR-controlled pair before relying on
+either reading.
+
 ---
 
 ## F-38 — A watchdog whose only output is a kill is indistinguishable from a healthy run
@@ -2456,3 +2473,143 @@ the first purpose does not follow.
 **Standing action:** sweep the pages for anything cited as a comparand that is not
 on the volume, and register what remains. What is already lost is recorded as
 lost — attempt 1's ring, and with it the between-run par-escalation magnitude.
+
+---
+
+## F-41 — The ring trained the policy in the wrong coordinates, and the loss swallowed the evidence
+
+**Found:** 2026-11-10, by a cross-repository comparison against TinyAlphaZero-v2,
+whose `RootResult.improved_policy()` returns move coordinates and so never had
+this defect. **Commissioned** by the principal's instruction, verbatim: *"yes,
+write the finding and fix the indexing bug"*. **Instrument:**
+`scripts/f41_ring_target_probe.py` at `1fc2473`, clean tree, torch 2.13.0+cpu,
+`sims 48`, `gumbel_m 16`.
+
+### The defect
+
+Two coordinate systems meet at the ring, and the writer and reader used different
+ones. Line numbers are at `1a434ac`:
+
+* **The search** counts visits by **root slot**: `child_visits[root]` has one entry
+  per position in `root_actions = legal_actions(expr)` (`search.py:422-431`).
+* **The writer** stored those slot positions: `order = np.argsort(-result.visits)`,
+  then `visit_actions=order` (`runner.py:309-314`).
+* **The reader** expanded them as **dense action indices**, `rule * max_sites + site`:
+  `dense[int(action)] = count / total` (`train.py:240-243`).
+
+Slot *j* can therefore only ever reach cell *j*, which is `eval_add` at site *j*.
+Usually that cell is not even legal, and the policy loss then makes the mass vanish:
+the masked log-probability is `-inf` there, `nan_to_num` turns the product into
+exactly 0 (`model.py:245-248`), and targets are not renormalised. The mass
+contributes no gradient and raises nothing.
+
+The search's **priors** were read correctly, through `action_index`
+(`search.py:322-325`). Only the training target was wrong.
+
+### Measured
+
+| reading | coverage | correct | wrong legal cell | dropped (illegal cell) |
+|---|---|---:|---:|---:|
+| **Slot census**, policy-independent: slot *j* trained as cell *j* | all 2,000 frozen suite start states, 18,193 legal slots | **106** | **397** | **17,690** |
+| the same, capped at the 16 slots the ring holds | 17,387 slots | 106 | 397 | 16,884 |
+| **BFS-optimal first move**: where the move a good policy concentrates on lands | 1,200 states, `solve_in_1..6` | **102** | 0 | **1,098** |
+| **End to end**, visit-mass weighted: real runner → ring → `ring_batch`, scored against each record's own `SearchResult` | 200 problems (20 per suite via `sample_indices`), 3,365 records, uniform stub | **2.58%** | **4.17%** | **93.25%** |
+
+* Only **42 of 2,000** states have every slot land on its own cell.
+* All 102 "correct" optimal moves are `eval_add`. Every optimal `combine_like_terms`
+  (204), `eval_mul` (319), `eval_sub` (351), `sub_both_sides` (184) and
+  `div_both_sides` (40) was dropped.
+* Mean target mass on legal cells per ring row is **0.0675**, minimum 0.0.
+* The target's argmax over legal cells is a max-visit action for **353 / 3,365** records.
+* Coverage of the end-to-end reading:
+  - records by par: 112 / 194 / 249 / 300 / 296 / 294 / 480 / 480 / 480 / 480 for pars 1–10;
+  - by source: 1,445 `bfs`, 1,920 `scripted`;
+  - n_legal histogram over the suite states: {1: 234, 2: 158, 3: 102, 4: 80, 5: 202, 6: 128, 8: 91, 9: 205, 12: 181, 15: 216, 18: 403}.
+
+So a ring row carried about 7% of a policy gradient. Of that 7%, **more pointed at
+the wrong legal action (4.17%) than at the right one (2.58%)**, and the wrong
+action is always `eval_add` at a low site. Under a trained network, where visits
+concentrate on one move, the target was **discarded entirely in 91.5% of states**:
+every state whose best move is not `eval_add`.
+
+### Why nothing caught it
+
+* **Writer and reader were never tested together.**
+  - The ring fixtures use synthetic `visit_actions = [5, 9]` on undecodable tokens
+    (`test_replay.py:40`, `test_resume.py:38`) and never reach `ring_batch`.
+  - `make_batch` is guarded (`test_train.py:107-121`), but that is the supervised
+    path, which stores `action_index` correctly.
+  - "Training on the ring moves the model" (`test_train.py:255-264`) passes on the
+    value and steps gradients alone.
+* **The types agreed and the coordinates did not.** Both sides held `int32`
+  indices into *something*. This is the codec law's blind spot from the other
+  side: a round trip proves two halves agree with each other, and here nothing
+  even ran the round trip.
+* **The mask was documented as a detector and acted as a silencer.** On *logits*,
+  the policy loss's mask is the fabricated-target detector its docstring names. On
+  *targets*, the same mask plus `nan_to_num` made illegal mass disappear. That is
+  rider (b) in its purest form: the instrument existed, was populated, and could
+  not speak.
+
+### What it does and does not touch
+
+**Stands.** Every *instrument* reading is a true measurement of its checkpoint,
+because search, the ladder and the gates read priors through `action_index`. That
+covers:
+- P1: anchor 101/600 → campaign 209/600, CI [0.1367, 0.2217];
+- the no-regress floors;
+- top-1 0.9699 at every checkpoint;
+- F-39's decomposition.
+
+Phase 1 is untouched (`make_batch` one-hots the dataset's stored `action_index`).
+
+**Compromised: the training-side conclusions, which now read as unexplained under
+the defect, not false.**
+
+* **F-37**, "forgetting is essentially immediate". Measured at `f = 0.00`, where
+  every policy gradient came from ring rows: about 7% surviving mass, most of it
+  pointed the wrong way.
+* **AMENDMENT-m1a4 §5's `rehearsal_frac = 0.65`.** The screen compared arms whose
+  ring policy signal was close to noise. Top-1 pinned at the anchor's 1192/1229 for
+  `f ≥ 0.65` is what one would see if supervision were the only real policy signal
+  in the batch, which under this defect it was.
+* **Attempt 1's collapse**, 0.9699 → 0.8942 at `f = 0`.
+* **What produced M1's +0.18.** The policy target the loop exists to learn from was
+  absent. Candidates are the value and steps trunk gradients, the rehearsal rows,
+  and the systematic push toward `eval_add`. This is an open question, not a finding.
+* **Stale prose.** "Phase 2's improved-policy targets … wash it out"
+  (`train.py:18-19`) could not have been true. The ring could wash nothing out.
+
+### The fix
+
+Lands in the next commit, tests written first:
+- the writer stores `action_index` through one function;
+- `RING_FORMAT` 2 redefines `visit_actions`, so format-1 records read as era-absent
+  and are never reinterpreted;
+- resume refuses a ring holding such records;
+- the policy loss raises on target mass off the legal set, instead of dropping it.
+
+The probe above is version-independent (it never assumes what `visit_actions`
+means), and its post-fix reading is appended here when it exists.
+
+**Not fixed here.** Even in correct coordinates, the target is the
+Sequential-Halving visit share, not the Gumbel improved policy π′ the spec
+promises. That is a registered one-lever change for later, not part of this
+defect.
+
+### Rule (proposed, not countersigned)
+
+> **A coordinate conversion lives in exactly one function, and every writer/reader
+> pair across a storage boundary is tested together on the real path, against
+> ground truth captured from the producer.** A mask applied to *targets* raises; it
+> never zeroes.
+
+### Standing actions
+
+1. **Re-measure under correct targets.** Re-run F-37's two `f = 0.00` arms and the
+   `f` screen. These are minutes of compute, and F-37's 200/400-step pair should also
+   control for warmup and cosine (its arms end at different LRs).
+2. **M1's ring is repairable offline, if the volume survives.** Tokens are stored,
+   and `legal_actions` order is part of the interface under `RULESET_VERSION 1`, so
+   each slot maps back to its action exactly. Repair before any reuse rather than
+   discard. The resume refusal deliberately blocks reusing it unrepaired.
