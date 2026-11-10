@@ -387,3 +387,88 @@ def test_truncating_the_logs_is_idempotent() -> None:
         once = (run / "value_switch.jsonl").read_text()
         resume(run, CFG)
         assert (run / "value_switch.jsonl").read_text() == once
+
+
+# ---------------------------------------------------------------------------
+# A ring whose policy targets predate F-41 is not resumed into
+# ---------------------------------------------------------------------------
+
+
+def _commit_one(run: Path, ring: ReplayRing) -> None:
+    state = RunState(iteration=0, value_head=ValueHeadState(), seed=7)
+    commit_iteration(run, ring, state, lambda: None)
+
+
+def test_resume_refuses_a_ring_whose_visit_actions_predate_f41(tmp_path: Path) -> None:
+    """Format-1 records hold root SLOT positions, not actions (F-41).
+
+    ``ring_batch`` sits such a record out, which is right for a reader and silent
+    for a campaign: a resume across the fix would quietly train its policy on the
+    new rows alone, at an unchanged fingerprint, after iterations that trained on
+    the defect. The campaign fingerprint cannot see this, so resume refuses.
+    """
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    with pytest.raises(ResumeError, match="F-41"):
+        resume(tmp_path, CFG)
+
+
+def test_resume_accepts_a_ring_written_in_the_current_format(tmp_path: Path) -> None:
+    """The other polarity, so the refusal cannot be 'always refuse'."""
+    ring = ReplayRing(8, CFG)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    start, loaded, _state = resume(tmp_path, CFG)
+    assert start == 1 and loaded is not None and len(loaded) == 1
+
+
+def _snapshot(run: Path) -> dict[str, bytes]:
+    return {str(p.relative_to(run)): p.read_bytes() for p in sorted(run.rglob("*")) if p.is_file()}
+
+
+def test_the_resumability_check_refuses_without_writing_anything(tmp_path: Path) -> None:
+    """``check_resumable`` exists so a launcher can refuse BEFORE its first write;
+    that only holds if the check itself touches nothing."""
+    from reckoner.resume import check_resumable
+
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    (tmp_path / "iterations.jsonl").write_text('{"iteration": 0}\n{"iteration": 1}\n')
+    before = _snapshot(tmp_path)
+    with pytest.raises(ResumeError, match="1 of 1 records"):
+        check_resumable(tmp_path)
+    assert _snapshot(tmp_path) == before
+
+
+def test_the_resumability_check_passes_a_current_or_empty_run(tmp_path: Path) -> None:
+    """The other polarity, twice: a fresh directory and a current-format ring."""
+    from reckoner.resume import check_resumable
+
+    check_resumable(tmp_path / "never-run")
+    ring = ReplayRing(8, CFG)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    check_resumable(tmp_path)
+
+
+def test_the_launcher_refuses_before_it_overwrites_the_summary(tmp_path: Path, monkeypatch) -> None:
+    """The F-41 review's ordering finding. ``scripts/campaign.py`` writes a
+    "started" stub over ``campaign_summary.json`` before calling the driver, so a
+    refusal raised inside the driver arrived after a completed run's summary was
+    already gone. The refusal has to come first."""
+    import importlib
+    import sys
+
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record(par=1))
+    _commit_one(tmp_path, ring)
+    summary = tmp_path / "campaign_summary.json"
+    summary.write_text('{"status": "complete"}\n')
+
+    launcher = importlib.import_module("campaign")
+    monkeypatch.setattr(sys, "argv", ["campaign.py", str(tmp_path)])
+    with pytest.raises(ResumeError, match="F-41"):
+        launcher.main()
+    assert summary.read_text() == '{"status": "complete"}\n'

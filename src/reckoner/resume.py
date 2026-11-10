@@ -44,7 +44,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from reckoner.config import Config
-from reckoner.replay import ReplayRing
+from reckoner.replay import STALE_TARGETS, ReplayRing, era_absent_on_disk
 from reckoner.valuegate import ValueHeadState
 
 #: Committed rings kept behind ``LATEST``. Priced before being chosen, rider (c)
@@ -156,6 +156,33 @@ def prune_rings(run: Path, *, keep: int = KEEP_RINGS) -> list[int]:
     return doomed
 
 
+def check_resumable(run: Path) -> None:
+    """Refuse, without writing anything, a run whose committed ring cannot train.
+
+    F-41: records from before ring_format 2 hold root slot positions where their
+    actions belong. ``ring_batch`` sits them out, which is right for a reader and
+    SILENT for a campaign — a resume across the fix would train its policy on the
+    new rows alone, at an unchanged config fingerprint, after iterations that
+    trained on the defect. The fingerprint door cannot see that, so this one does.
+
+    Read-only on purpose, and separate from :func:`resume`, so a launcher can call
+    it before it writes its own first file: a refusal that arrives after the
+    launcher has overwritten a completed run's summary has already cost the
+    record it was protecting.
+    """
+    committed = latest_committed(run)
+    if committed is None:
+        return
+    stale, total = era_absent_on_disk(run / f"ring-{committed}", "visit_actions")
+    if stale:
+        raise ResumeError(
+            f"ring-{committed} holds {stale} of {total} records whose {STALE_TARGETS}. "
+            "Resuming would continue a campaign whose earlier iterations trained on "
+            "those targets, under a fingerprint that cannot show the difference. "
+            "Start a fresh run."
+        )
+
+
 def resume(run: Path, cfg: Config) -> tuple[int, ReplayRing | None, RunState | None]:
     """Return ``(next_iteration, ring, state)``, cleaning provisional artifacts.
 
@@ -170,6 +197,7 @@ def resume(run: Path, cfg: Config) -> tuple[int, ReplayRing | None, RunState | N
     is idempotent, removing an already-removed orphan is a no-op, and nothing
     here writes ``LATEST``. Asserted in `tests/test_resume.py`, not assumed.
     """
+    check_resumable(run)  # read-only, and first: nothing below runs on a refusal
     committed = latest_committed(run)
     rows_path = run / "iterations.jsonl"
 

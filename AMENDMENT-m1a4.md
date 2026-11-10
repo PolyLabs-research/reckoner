@@ -315,3 +315,28 @@ Fields **deleted**: the eight unbacked keys in §4.
 
 **The campaign fingerprint moves once, here, and PREREG-m1's recorded value must
 be updated with it.**
+
+---
+
+## Erratum (2026-11-10, F-41)
+
+§5's screen selected `rehearsal_frac = 0.65` from arms whose **ring** policy
+targets were in the wrong coordinates:
+- 93.25% of stored visit mass sat on illegal cells and was dropped by the loss;
+- 4.17% trained the wrong legal action;
+- 2.58% trained the right one (`FINDINGS.md` F-41).
+
+The supervised rows were the only real policy signal in every arm. That fits top-1
+being pinned at the anchor's 1192/1229 for `f ≥ 0.65`.
+
+The selection rule was applied as registered, and its arithmetic stands. What it
+selected among was not the treatment it was meant to compare. Re-run the screen
+under correct targets before 0.65 is treated as tuned rather than inherited.
+
+**Amendment (2026-11-10, F-41 review).** The three percentages above are the
+probe's pooled uniform-stub reading over all ten suites, not a measurement of
+§5's arms. In the stratum matching ring-0 (BFS par 1–6), the split is 6.00%
+correct, 4.61% wrong legal and 89.39% dropped. The point stands that supervision
+carried nearly all the policy signal in every arm. Ring-0 must be regenerated
+under the fixed writer before the screen is re-run; `train_on_ring` now refuses
+the old ring.

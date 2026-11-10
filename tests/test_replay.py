@@ -180,6 +180,76 @@ def test_a_current_format_record_reports_no_era_absence() -> None:
     assert not isinstance(ring.get(0)["root_q"], Absent)
 
 
+def test_a_pre_f41_record_cannot_be_read_as_actions() -> None:
+    """Format 1 stored root SLOT positions in ``visit_actions`` (F-41).
+
+    A redefinition is an era boundary: the old values are not wrong-but-usable,
+    they are in different coordinates, and the ring must refuse to hand them out
+    as actions. Era-absent with the reason named, never the raw integers.
+    """
+    ring = ReplayRing(4, CFG, ring_format=1)
+    ring.append(**a_record())
+    got = ring.get(0)
+    assert isinstance(got["visit_actions"], Absent)
+    assert got["visit_actions"].kind == "era"
+    assert "F-41" in got["visit_actions"].reason
+    assert "slot" in got["visit_actions"].reason.lower()
+    # Only the redefined field is affected; the rest of a format-1 record stands.
+    assert not isinstance(got["visit_counts"], Absent)
+    assert not isinstance(got["root_q"], Absent)
+
+
+def test_a_current_format_record_hands_out_its_visit_actions() -> None:
+    """The other polarity: without it, the refusal above could be 'always absent'."""
+    assert RING_FORMAT >= 2
+    ring = ReplayRing(4, CFG, ring_format=RING_FORMAT)
+    ring.append(**a_record())
+    assert ring.get(0)["visit_actions"].tolist()[:2] == [5, 9]
+    assert ring.era_absent("visit_actions") == 0
+
+
+def test_era_absent_counts_the_records_a_field_cannot_be_read_from() -> None:
+    """Both formats in one ring: the count names exactly the old ones."""
+    ring = ReplayRing(8, CFG, ring_format=1)
+    ring.append(**a_record())
+    ring.append(**a_record())
+    ring.ring_format = RING_FORMAT
+    ring.append(**a_record())
+    assert ring.era_absent("visit_actions") == 2
+    assert ring.era_absent("root_q") == 0
+
+
+def test_ring_batch_sits_out_a_pre_f41_record() -> None:
+    """A slot-indexed record must not become a policy target, wrong or dropped."""
+    from reckoner.episode import encode_state
+    from reckoner.generator import emit, label
+    from reckoner.model import encode
+    from reckoner.train import ring_batch
+
+    problem = label(emit("solve_two_terms", random.Random(1)), CFG)
+    assert problem is not None
+    state = encode(problem, problem.expr, CFG)
+    record = a_record(
+        tokens=np.asarray(encode_state(problem.goal, problem.expr, problem.target), np.int16),
+        site_positions=np.asarray(state.site_positions[: state.n_sites], np.int16),
+        visit_actions=np.array([0], dtype=np.int32),
+        visit_counts=np.array([1], dtype=np.int32),
+    )
+    old = ReplayRing(4, CFG, ring_format=1)
+    old.append(**record)
+    assert ring_batch(old, [0], CFG) is None
+
+    new = ReplayRing(4, CFG)
+    from reckoner.model import action_index
+    from reckoner.rules import legal_actions
+
+    legal = action_index(*legal_actions(problem.expr)[0], CFG.model.max_sites)
+    new.append(**{**record, "visit_actions": np.array([legal], dtype=np.int32)})
+    batch = ring_batch(new, [0], CFG)
+    assert batch is not None and batch.skipped == 0
+    assert float(batch.policy_target[0, legal]) == 1.0
+
+
 def test_an_absent_value_refuses_to_be_read_as_a_zero() -> None:
     """`Absent.__bool__` raises: truthiness is how an absence becomes a zero."""
     ring = ReplayRing(4, CFG, ring_format=0)
@@ -324,3 +394,37 @@ def test_loading_under_a_different_layout_is_refused(tmp_path: Path) -> None:
     other.model.max_sites = 64
     with pytest.raises(RingError, match="record layout is denominated"):
         ReplayRing.load(tmp_path / "ring", other)
+
+
+def test_a_loaded_ring_stamps_new_records_with_the_writing_code_s_format(tmp_path: Path) -> None:
+    """Per-record formats survive a load; NEW appends carry the current format.
+
+    ``load`` used to rebuild the ring at the format in its meta, so every record
+    appended after a resume was stamped with the OLD format. Harmless while only
+    format 1 existed; the first bump (F-41) would have made every new, correct
+    record read as era-absent. Both halves asserted.
+    """
+    old = ReplayRing(4, CFG, ring_format=1)
+    old.append(**a_record())
+    old.save(tmp_path / "ring")
+
+    loaded = ReplayRing.load(tmp_path / "ring", CFG)
+    loaded.append(**a_record())
+    assert loaded.get(0)["ring_format"] == 1
+    assert loaded.get(1)["ring_format"] == RING_FORMAT
+    assert loaded.era_absent("visit_actions") == 1
+
+
+def test_a_ring_from_a_newer_format_is_refused_at_load(tmp_path: Path) -> None:
+    """Code cannot vouch for a meaning it predates."""
+    import json
+
+    ring = ReplayRing(4, CFG)
+    ring.append(**a_record())
+    ring.save(tmp_path / "ring")
+    meta_path = tmp_path / "ring" / "meta.json"
+    meta = json.loads(meta_path.read_text())
+    meta["ring_format"] = RING_FORMAT + 1
+    meta_path.write_text(json.dumps(meta))
+    with pytest.raises(RingError, match="newer"):
+        ReplayRing.load(tmp_path / "ring", CFG)

@@ -123,3 +123,40 @@ unavailable**, and F-37's immediate-forgetting result carries that weight instea
 Recorded as **F-40**: attempt 1's ring became load-bearing when a page cited it as
 the counterfactual arm, and registration follows creation rather than citation, so
 nothing ever registered it.
+
+---
+
+## Erratum (2026-11-10, F-41)
+
+**Every number above stands as a measurement of its checkpoint.** That includes
+P1's 101/600 → 209/600, CI [0.1367, 0.2217], the floors, and top-1 0.9699. The
+instruments read the network's priors in the correct coordinates.
+
+**What the campaign trained on did not stand.** Throughout M1, the replay ring
+stored root slot positions where `ring_batch` read dense action indices.
+- 93.25% of the ring's visit mass was dropped as illegal.
+- Of the remainder, more trained the wrong legal action than the right one.
+- Under a trained network, the target was discarded entirely in 91.5% of states
+  (`FINDINGS.md` F-41).
+
+M1 therefore improved **without the policy target the loop exists to learn
+from**. Its +0.18 is real. Its cause is open: value and steps trunk gradients,
+supervised rehearsal, or the systematic push toward `eval_add` at low sites.
+
+A resume of this run is refused by code from ring_format 2 onward.
+
+**Amendment (2026-11-10, F-41 review).** Two lines of the erratum above are
+corrected.
+
+- "Of the remainder, more trained the wrong legal action than the right one" is
+  withdrawn. It was a pooled uniform-stub reading over all ten suites. In the
+  stratum matching M1's training problems (BFS par 1–6), correct exceeds
+  wrong-legal: 6.00% against 4.61%, with 89.39% dropped. The split under M1's own
+  network is unmeasured.
+- "Under a trained network … 91.5% of states" named the wrong mechanism. The
+  correct statement is network-independent: on 1,094 of 1,200 `solve_in` start
+  states, no storable slot lands on a legal cell, so the whole target was dropped
+  whatever the network.
+
+The conclusion is unchanged. M1 improved while roughly 90% of its ring's policy
+target was discarded.
