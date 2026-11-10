@@ -124,6 +124,8 @@ class Field:
     #: Why rows before ``since`` cannot be read as this column, when "the column
     #: did not exist yet" would be false: a column REDEFINED in place existed
     #: before, under another meaning, and its old values are not this quantity.
+    #: It does work in ``validate_row``: a redefined column keeps its older eras'
+    #: requiredness, because it was present then under the old meaning.
     since_reason: str | None = None
 
     def __post_init__(self) -> None:
@@ -233,8 +235,8 @@ ITERATION_FIELDS: tuple[Field, ...] = (
         "H of the **search-improved** target π′ at step 1 on start states. Prior "
         "and target must both be logged: the chess lesson is that prior entropy "
         "alone cannot distinguish a confident policy from a collapsed one. Equal "
-        "to H(prior) exactly where search found nothing — read it beside "
-        "kl_improved_prior_step1_start, which is zero there and only there.",
+        "to H(prior) up to float32 rounding where search found nothing — read it "
+        "beside kl_improved_prior_step1_start, which is exactly zero there.",
         since=4,
         since_reason=_F42_TARGET_REDEFINED,
     ),
@@ -356,7 +358,7 @@ ITERATION_FIELDS: tuple[Field, ...] = (
         "stored slots. They sit out of policy training under 'improved' — counted, "
         "never cropped (F-42).",
         zero_class="premise",
-        zero_premises="every ring record's root had at most IMPROVED_SLOTS = 128 legal "
+        zero_premises="every ring record's root had at most IMPROVED_SLOTS = 160 legal "
         "actions, or the π′ mass beyond the stored slots was at most IMPROVED_TAIL_TOL",
         since=4,
     ),
@@ -634,8 +636,11 @@ def validate_row(row: dict[str, Any], fields: tuple[Field, ...] = ITERATION_FIEL
             # Absence by ERA is valid, and its reason is computed rather than
             # asserted: a row written before a field existed could not have
             # explained the absence of something nobody had named yet.
-            if era is not None and era < spec.since:
+            if era is not None and era < spec.since and spec.since_reason is None:
                 continue
+            # A column REDEFINED in place (it carries a since_reason) existed in
+            # older eras under its old meaning and was required then; its absence
+            # from an old row is a missing column, not an era absence (F-42).
             if spec.required:
                 raise SchemaError(
                     f"{name}: required field missing"

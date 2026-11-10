@@ -48,16 +48,16 @@ from reckoner.replay import NO_IMPROVED_TARGET, STALE_TARGETS, ReplayRing, era_a
 from reckoner.valuegate import ValueHeadState
 
 #: Committed rings kept behind ``LATEST``. Priced before being chosen, rider (c)
-#: applied to disk: one ring at ``replay_capacity`` 500,000 is **1.20 GiB** since
-#: F-42's π′ fields (0.73 GiB before), so an unpruned run would cost 24.1 GiB by
-#: iteration 20, **60.2 GiB by 50**, 120 GiB by 100 — against 114 GiB free on the
+#: applied to disk: one ring at ``replay_capacity`` 500,000 is **1.33 GiB** since
+#: F-42's π′ fields (0.73 GiB before), so an unpruned run would cost 26.5 GiB by
+#: iteration 20, **66.3 GiB by 50**, 133 GiB by 100 — against 114 GiB free on the
 #: box when this was first priced. Disk exhaustion mid-campaign is not how this
 #: policy should be discovered.
 #:
 #: 3 is chosen over 1 because the resume path is the one path that only ever runs
 #: after something has already gone wrong: if the newest committed ring is
 #: unreadable, two older ones let a run be rewound rather than restarted. Steady
-#: state is 3.61 GiB (4.82 GiB transiently during a commit), still not a number
+#: state is 3.98 GiB (5.30 GiB transiently during a commit), still not a number
 #: worth optimising against that free space.
 KEEP_RINGS = 3
 

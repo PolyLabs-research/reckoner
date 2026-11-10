@@ -187,6 +187,40 @@ def test_v_mix_uses_v_hat_and_prior_weights() -> None:
     assert pi.tolist() == (e / e.sum()).astype(np.float32).tolist()
 
 
+def test_v_mix_weights_the_visited_values_by_the_prior_over_the_visited_set() -> None:
+    """**The prior weighting, pinned** (F-42 review: a plain-mean mutant passed
+    every vector above, because they all used flat logits with the visited slots
+    first).
+
+    logits [0, 2, 0, 1], visits [0, 3, 0, 1] (visited slots NOT leading), values
+    [., 1, ., 0], v̂ = 0. π_V over the visited logits [2, 1] is
+    [e^2, e^1] / (e^2 + e^1) = [0.7311, 0.2689], so
+
+        v_mix = (0 + 4 · (0.7311 · 1 + 0.2689 · 0)) / 5 = 0.584847
+
+    against 0.4 for an unweighted mean and 0.488237 for the full-vector softmax
+    left unnormalised over the visited set. max N = 3, so σ = 53 q.
+    """
+    logits = np.array([0.0, 2.0, 0.0, 1.0])
+    visits = np.array([0, 3, 0, 1], dtype=np.int32)
+    values = np.array([-1.0, 1.0, -1.0, 0.0], dtype=np.float32)
+    pi = _improved_target(logits, visits, values, 0.0, CFG)
+
+    e2, e1 = math.exp(2.0), math.exp(1.0)
+    v_mix = 4 * (e2 / (e2 + e1)) / 5
+
+    def target(completion: float) -> list[float]:
+        completed = np.array([completion, 1.0, completion, 0.0])
+        z = logits + 53.0 * completed
+        e = np.exp(z - z.max())
+        return (e / e.sum()).astype(np.float32).tolist()
+
+    assert v_mix == pytest.approx(0.5848468629040039)
+    assert pi.tolist() == target(v_mix)
+    assert pi.tolist() != target(0.4), "an unweighted mean over the visited values"
+    assert pi.tolist() != target(4 * (e2 / (2 + e2 + e1)) / 5), "full softmax, unnormalised"
+
+
 def test_unvisited_values_never_reach_the_target() -> None:
     """Poison the unvisited slots: π′ must not move. Mask by visits, never by value."""
     visits = np.array([3, 1, 0, 0], dtype=np.int32)

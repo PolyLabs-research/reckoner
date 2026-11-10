@@ -77,14 +77,15 @@ def test_bytes_per_record_matches_the_declared_footprint() -> None:
     Fourth-instance discipline: a summary of a derivation drifts from it, so the
     number is computed and the declared value is checked against the computation.
     """
-    assert bytes_per_record(CFG) == 2586  # 1558 before F-42's π′ fields
+    assert bytes_per_record(CFG) == 2846  # 1558 before F-42's π′ fields
+    assert bytes_per_record(CFG, ring_format=2) == 1558
 
 
 def test_the_declared_capacity_fits_the_declared_budget() -> None:
-    """1.20 GiB at 500,000 against ~45 GiB realistically free since the
+    """1.33 GiB at 500,000 against ~45 GiB realistically free since the
     2026-08-16 rebalance (AGENTS.md §3); 0.72 GiB before F-42."""
     gib = CFG.train.replay_capacity * bytes_per_record(CFG) / 1024**3
-    assert gib == pytest.approx(1.20, abs=0.01)
+    assert gib == pytest.approx(1.33, abs=0.01)
     assert gib < 45.0
 
 
@@ -490,25 +491,15 @@ def test_pi_prime_fields_round_trip_through_save_and_load(tmp_path: Path) -> Non
     assert got["improved_tail"] == 0.0
 
 
-def _as_format_2(path: Path) -> None:
-    """Rewrite a saved ring as a format-2 writer would have left it."""
-    import json
-
-    for name in ("improved_actions", "improved_probs", "improved_tail"):
-        (path / f"{name}.bin").unlink()
-    meta = json.loads((path / "meta.json").read_text())
-    meta["ring_format"] = 2
-    del meta["improved_slots"]
-    (path / "meta.json").write_text(json.dumps(meta))
-
-
 def test_a_format_2_ring_loads_with_its_pi_prime_era_absent(tmp_path: Path) -> None:
     old = ReplayRing(4, CFG, ring_format=2)
     old.append(**a_record())
-    old.save(tmp_path / "ring")
+    meta = old.save(tmp_path / "ring")
     assert not (tmp_path / "ring" / "improved_probs.bin").exists(), (
         "a format-2 ring must be saved without the format-3 fields"
     )
+    # ... and with the meta a format-2 writer wrote: no π′ slots, format-2 bytes.
+    assert "improved_slots" not in meta and meta["bytes_per_record"] == 1558
     loaded = ReplayRing.load(tmp_path / "ring", CFG)
     got = loaded.get(0)
     assert isinstance(got["improved_probs"], Absent) and got["improved_probs"].kind == "era"

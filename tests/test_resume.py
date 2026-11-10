@@ -260,7 +260,8 @@ def test_the_value_head_declaration_survives_a_resume(tmp_path: Path) -> None:
 
 
 def test_only_the_last_k_rings_are_kept(tmp_path: Path) -> None:
-    """Unpruned, a run costs 0.73 GiB per iteration — 36.3 GiB by iteration 50.
+    """Unpruned, a run costs 1.33 GiB per iteration — 66.3 GiB by iteration 50
+    (0.73 GiB and 36.3 GiB before F-42's π′ fields).
 
     Disk exhaustion mid-campaign is not how this policy should be discovered.
     """

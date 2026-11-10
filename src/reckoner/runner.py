@@ -217,8 +217,14 @@ def _record(stats: IterationStats, result: SearchResult, live: _Live) -> None:
     # Compared at the TARGET's precision: π′ is stored float32, and where it is
     # the prior both come from the identical float64 softmax, so the float32
     # values agree exactly and the divergence is exactly 0 — not float noise.
-    prior32 = np.asarray(result.root_priors, dtype=np.float32)
-    kl = kl_divergence(result.improved, prior32) if len(result.actions) else 0.0
+    # Where the float32 cast of the prior underflows to 0 while the float64
+    # prior is positive, the float64 value is used: a precision artefact must
+    # not read as a target naming an action the prior has no mass on, and must
+    # never halt self-play over a diagnostic column (F-42 review).
+    prior64 = np.asarray(result.root_priors, dtype=np.float64)
+    prior32 = prior64.astype(np.float32).astype(np.float64)
+    reference = np.where(prior32 > 0.0, prior32, prior64)
+    kl = kl_divergence(result.improved, reference) if len(result.actions) else 0.0
     if live.steps == 0:
         stats.h_prior_start.append(h_prior)
         stats.h_target_start.append(h_target)

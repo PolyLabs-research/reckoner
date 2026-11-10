@@ -282,8 +282,8 @@ def test_policy_target_is_one_lever(monkeypatch) -> None:
 
 
 def _wide_problem():
-    """A SOLVE state with 132 legal actions — wider than the ring's 128 π′ slots
-    — that still encodes (131 sites). Constructed, so the cropped path is tested
+    """A SOLVE state with 168 legal actions — wider than the ring's 160 π′ slots
+    — that still encodes (167 sites). Constructed, so the cropped path is tested
     for real rather than skipped."""
     from reckoner.episode import Problem
     from reckoner.expr import add, eq, mul, num, var
@@ -291,28 +291,132 @@ def _wide_problem():
 
     x = var(VAR_X)
     expr = eq(
-        add(*[mul(num(i + 2), x) for i in range(32)], *[num(i + 1) for i in range(32)]), num(5)
+        add(*[mul(num(i + 2), x) for i in range(41)], *[num(i + 1) for i in range(41)]), num(5)
     )
     return Problem(goal=GOAL_SOLVE, expr=expr, par=4, target=VAR_X, par_source="pool")
 
 
-def test_a_root_wider_than_the_ring_is_counted_and_sits_out_never_cropped() -> None:
-    from reckoner.replay import IMPROVED_SLOTS
+def _wide_ring(records: int = 24) -> tuple[ReplayRing, list[int], object]:
+    """A ring whose records carry a CROPPED π′, written by the real writer.
+
+    The state is real (168 legal actions, more than the ring's 160 slots, and it
+    encodes). The search itself rarely spreads π′ that wide — on this state
+    some children overflow the encoder and become proven losses, v_mix goes
+    negative and π′ concentrates on the visited actions — so the root result
+    handed to ``runner._settle`` carries the flattest π′ there is, uniform over
+    every legal action. Everything downstream is the production path: the
+    writer computes the tail and the counter, the ring stores them, and the
+    reader decides on what was stored.
+    """
+    import random
+
+    import numpy as np
+
+    from reckoner.replay import IMPROVED_SLOTS, IMPROVED_TAIL_TOL
     from reckoner.rules import legal_actions
+    from reckoner.search import SearchStats
 
     problem = _wide_problem()
-    assert len(legal_actions(problem.expr)) > IMPROVED_SLOTS
+    actions = legal_actions(problem.expr)
+    n = len(actions)
+    assert n > IMPROVED_SLOTS
     encode(problem, problem.expr, CFG)  # must encode: fails, not skips, if it stops
-    # A flat prior spreads π′ over every action, so the dropped tail is large.
+    result = SearchResult(
+        np.ones(n, np.int32),
+        np.zeros(n, np.float32),
+        actions,
+        actions[0],
+        0.0,
+        SearchStats(),
+        root_priors=np.full(n, 1.0 / n),
+        improved=np.full(n, 1.0 / n, np.float32),
+    )
     ring = ReplayRing(256, CFG)
-    stats = runner.run_iteration([problem], uniform_stub(CFG), CFG, ring, sims=16, seed=0)
-    assert stats.ring_improved_truncated >= 1
-    wide = [i for i in range(len(ring)) if ring.get(i)["improved_tail"] > 1e-6]
-    assert wide, "no record carried a dropped tail"
-    batch = ring_batch(ring, wide, CFG, target="improved")
-    assert batch is None or batch.truncated == len(wide)
-    visit_batch = ring_batch(ring, wide, CFG, target="visits")
-    assert visit_batch is not None and visit_batch.truncated == 0
+    stats = runner.IterationStats()
+    live = runner._Live(problem=problem, expr=problem.expr, rng=random.Random(0), steps=records)
+    trail = {0: [(result, problem.expr, step) for step in range(records)]}
+    runner._settle(stats, ring, live, trail, CFG, solved=False, capped=True)
+    wide = [i for i in range(len(ring)) if ring.get(i)["improved_tail"] > IMPROVED_TAIL_TOL]
+    assert len(wide) == records, "every record must carry a dropped tail"
+    assert ring.get(0)["improved_tail"] == pytest.approx((n - IMPROVED_SLOTS) / n, rel=1e-6)
+    assert stats.ring_improved_truncated == records, "write-side count and stored tails disagree"
+    return ring, wide, stats
+
+
+def test_a_root_wider_than_the_ring_withholds_only_its_policy_target() -> None:
+    """Counted, never cropped, never renormalised — and the row STAYS for the
+    value and steps heads, so the policy lever cannot change who the value head
+    learns from (F-42 review). The control arm trains every row's visit share."""
+    ring, wide, _stats = _wide_ring()
+    improved = ring_batch(ring, wide, CFG, target="improved")
+    visits = ring_batch(ring, wide, CFG, target="visits")
+    assert improved is not None and visits is not None
+    assert improved.truncated == len(wide) and visits.truncated == 0
+    assert improved.policy_rows is not None and not bool(improved.policy_rows.any())
+    assert float(improved.policy_target.abs().sum()) == 0.0
+    for name in ("tokens", "legal_mask", "z_class", "root_q", "steps_target"):
+        assert torch.equal(getattr(improved, name), getattr(visits, name)), name
+
+
+def test_a_ring_of_only_wide_rows_still_trains_the_value_head() -> None:
+    """The silent zero-step run, closed: under 'improved' every policy target on
+    this ring is withheld, and training still takes every step on value and
+    steps, with the withheld rows counted as truncated, not as encode skips."""
+    from reckoner.model import Reckoner
+    from reckoner.train import train_on_ring
+
+    ring, wide, _stats = _wide_ring()
+    cfg = _ring_only_cfg()
+    torch.manual_seed(0)
+    model = Reckoner(cfg)
+    before = {k: v.detach().clone() for k, v in model.state_dict().items()}
+    stats = train_on_ring(model, ring, cfg, steps=2, seed=0)
+    assert stats.steps == 2 and stats.encode_skips == 0 and stats.improved_truncated > 0
+    moved = {
+        k.split(".")[0] for k, v in model.state_dict().items() if not torch.equal(v, before[k])
+    }
+    assert "value_head" in moved and "steps_head" in moved
+
+
+def test_the_configured_target_drives_ring_batch(monkeypatch) -> None:
+    """Behavioural liveness of the key itself: with no ``target=`` the reader
+    follows ``train.policy_target``, and the two settings produce different
+    policy targets on the same rows."""
+    from dataclasses import replace
+
+    ring, _truth = ring_with_truth(monkeypatch)
+    rows = list(range(len(ring)))
+    for name in ("improved", "visits"):
+        cfg = replace(CFG, train=replace(CFG.train, policy_target=name))
+        implicit = ring_batch(ring, rows, cfg)
+        explicit = ring_batch(ring, rows, CFG, target=name)
+        assert implicit is not None and explicit is not None
+        assert torch.equal(implicit.policy_target, explicit.policy_target), name
+    assert not torch.equal(
+        ring_batch(ring, rows, CFG, target="improved").policy_target,
+        ring_batch(ring, rows, CFG, target="visits").policy_target,
+    )
+
+
+def test_the_value_switch_population_does_not_depend_on_the_policy_target() -> None:
+    """``evaluate_head`` is pinned to the 'visits' row rule, so its labels and
+    predictions are identical under either configured target, wide rows
+    included."""
+    from dataclasses import replace
+
+    from reckoner.model import Reckoner
+    from reckoner.valuegate import evaluate_head
+
+    ring, wide, _stats = _wide_ring()
+    torch.manual_seed(0)
+    model = Reckoner(CFG)
+    slots = list(range(len(ring)))
+    readings = []
+    for name in ("improved", "visits"):
+        cfg = replace(CFG, train=replace(CFG.train, policy_target=name))
+        readings.append(evaluate_head(model, ring, cfg, slots))
+    assert readings[0] == readings[1]
+    assert len(readings[0][0]) == len(ring), "the wide rows must be in the population"
 
 
 def test_train_on_ring_refuses_a_pre_pi_prime_ring_under_improved(monkeypatch) -> None:
