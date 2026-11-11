@@ -4,7 +4,7 @@ The principal kept the visit share as the control arm for a later A/B. That arm
 is only a control if it is the old behaviour, bit for bit, and that is a
 derivation, not a claim. This script:
 
-1. exports a base commit (default ``6a9b18f``, the last commit before F-54's
+1. exports a base commit (default ``89b4095``, the last commit before F-54's
    code) with ``git archive`` into a scratch directory;
 2. runs ONE fixture, in a fresh subprocess per tree, importing each tree's own
    ``src``: frozen suite problems (``sample_indices``), one ``run_iteration`` of
@@ -24,7 +24,12 @@ Self-play runs under the uniform stub because a random-init network's episodes
 are too slow on a 4-CPU box; the search's own bit-identity under a network is
 tested in-process (``tests/test_improved_target.py``).
 
-    python scripts/f54_visits_arm_identity.py --base 6a9b18f --out /tmp/f54_identity.json
+    python scripts/f54_visits_arm_identity.py --base 89b4095 --out /tmp/f54_identity.json
+
+The default base was ``6a9b18f`` until the branch was rebased onto the local
+record (2026-11-11). ``89b4095`` is the same design commit after the rebase;
+``6a9b18f`` stays reachable under the tag ``cloud-f41-f42-original`` and can be
+passed with ``--base``.
 
 ``--rehearsal-frac`` (added 2026-11-11, on the box that holds the data) repeats
 the comparison with the supervised share wired in. The default stays 0.0, the
@@ -136,7 +141,7 @@ def _run(tree_src: Path, suites: Path, target: str, frac: float) -> dict:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--base", default="6a9b18f")
+    parser.add_argument("--base", default="89b4095")
     parser.add_argument("--out", type=Path, default=None)
     parser.add_argument(
         "--rehearsal-frac",

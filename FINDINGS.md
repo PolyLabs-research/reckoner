@@ -3817,3 +3817,63 @@ never pushed, so F-53 and F-54 were built on a `main` that lacks them.
 Every reading in this amendment is of this branch as pushed, without those
 five commits. Reconciling the two histories, including which findings are
 renumbered, is the principal's decision and is not made here.
+
+### Amendment (2026-11-11, after the rebase): renumbered, rebased onto the local record, and read again
+
+**Ruled by the principal, verbatim:** *"Push local main first and rebase the
+branch onto it"*.
+
+**What was done.**
+- The local `main` (five commits from 2026-08-22, F-41 through F-52) was merged
+  with the remote `main` (PR #1) and pushed as `bd868f1`. PR #1's finding is
+  F-53 there.
+- **This finding was written as F-42 and is F-54 from here on.** Every
+  reference in the tree moved with it, including file names
+  (`scripts/f42_*.py` → `scripts/f54_*.py`, `tests/test_f42_governance.py` →
+  `tests/test_f54_governance.py`). The fork paragraph in the amendment above
+  names the old numbers on purpose.
+- The branch's seven commits were rebased onto that `main`, so **every SHA
+  cited above this amendment names a commit of the pre-rebase history.** That
+  history is kept under the tag `cloud-f41-f42-original` (`87d10d6`). At those
+  commits the files and the text carry the old numbers.
+
+**The fingerprints, restated. This supersedes every `58fb79f9…` / `88c6adab…`
+above; none is edited in place.** Those were derived without
+`campaign.device`, on a tree that never held it. The door now pins:
+
+| pair | campaign | eval | moved by |
+|---|---|---|---|
+| M1 (closed) | `8443847b…` | `c8aa1fcc…` | — |
+| device era, no campaign ran under it | `ccfec081…` | `fd53b63f…` | `campaign.device` (2026-08-22, after F-51) |
+| **pinned now** | **`1a2f3aad…`** | **`15f63cc2…`** | `train.policy_target` (F-54) |
+
+- The one-key proof is restated as two steps in
+  `tests/test_f54_governance.py`: deleting `train.policy_target` recovers the
+  device-era pair exactly, and deleting `campaign.device` as well recovers
+  M1's. The other polarity fails both steps when a second value moves.
+- `campaign.py` keeps one literal for M1's pair (`M1_ERA_FINGERPRINTS`, from
+  the local record). The `M1_*` names this branch introduced are bound to it.
+- "They moved once" above is true of F-54's own move and is no longer the
+  whole history: twice since M1, one key each time.
+
+**Read again on the rebased tree** (`e9a6401` plus this amendment's changes,
+same host, same torch):
+
+| reading | result |
+|---|---|
+| `make lint` | green |
+| `make test` | **1004 passed**, 0 failed, 0 skipped |
+| legality, `phase1_train` / `phase1_eval` | 311,741 / 6,570 rows, **0 illegal**, 0 too large |
+| identity at `rehearsal_frac` 0.65, base `89b4095` | **IDENTICAL**; weights `f77078c0…`, `'improved'` `9bd775c6…` |
+| identity at 0.0, base `89b4095` | **IDENTICAL**; weights `49ff370e…`, `'improved'` `5666e266…` |
+| identity at 0.65, base `6a9b18f` (the pre-rebase design commit) | **IDENTICAL**; the same weights |
+| full iteration at 0.65, `'improved'`, fingerprint `1a2f3aad…` | **RAN_CLEAN**: 400 / 400 steps, 400 rehearsal batches, 0 skips, loss 59.978 → 14.852 |
+
+- Every weight digest equals its pre-rebase value, and the iteration's trained
+  weights are the same `50032463…` before and after. The five local commits
+  and the renumbering changed nothing the training path computes.
+- The identity script's default base is now `89b4095`, the design commit after
+  the rebase. `6a9b18f` still works by name while the tag exists.
+
+**Still open, and unchanged by any of this:** no PREREG registers the pinned
+pair yet, and the "not done here, and registered" list above stands.
