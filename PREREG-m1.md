@@ -787,3 +787,8 @@ times. The census's scope is fixed rather than footnoted: it reports
   under F-42, by exactly one key, `train.policy_target`. M1's pair survives as
   the `M1_*` literals in `campaign.py`, for the scripts that verify M1's own
   rows.
+
+**Correction to the note above (2026-11-11, F-42 review).** "The target entropy
+equals the prior's exactly wherever the search found nothing" should read: equals
+it up to float32 rounding. `kl_improved_prior_*` is the exact test, and it is
+exactly 0 there.
