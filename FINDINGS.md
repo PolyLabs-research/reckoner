@@ -3415,3 +3415,465 @@ refuses the old one by name.
 311,741. A campaign samples far more of them, so a raise on a supervised batch
 would be an older dataset defect surfacing, not this fix misfiring. A full-dataset
 legality pass on the box would settle it in advance.
+
+---
+
+## F-54 — The policy target was the halving schedule's shape, not the improved policy
+
+**Found:** 2026-11-10. It was a porting divergence surfaced by the
+TinyAlphaZero-v2 comparison, and F-53 carried it as "not fixed here".
+
+**Commissioned** by the principal, verbatim: *"now fix the Gumbel π' target"*. The
+rollout was then chosen from three offered options, verbatim:
+
+> *"π′ default, flag kept (Recommended)"* — *"Add train.policy_target with values
+> 'improved' (new default) and 'visits' (kept as the control arm for a later
+> A/B). default.yaml and both pinned fingerprints move once, with a dated
+> amendment explaining why. The next campaign gets π′ without further edits."*
+
+**Instrument:** `scripts/f54_policy_target_probe.py` at `0ec8e30`, clean tree,
+torch 2.13.0+cpu, `sims 48`, `gumbel_m 16`. It ran 200 frozen suite start states
+(20 per suite, via `sample_indices`) under three evaluators: the uniform stub, and a
+fixed random-init network at value contribution 0.0 and at 1.0.
+
+### The divergence
+
+**The spec promises an improved-policy target** (spec §1 thesis and §5 Phase 2).
+Gumbel MuZero's improved policy, and TinyAlphaZero-v2's training target
+(`gumbel.py:241-256`), is
+
+  π′ = softmax(logits + σ(completed Q)), over **every** legal root action,
+
+with σ(q) = (c_visit + max N) · c_scale · q.
+
+**What reckoner computes is not that.** `SearchResult.improved_policy()`
+(`search.py:106-110`) returns `visits / visits.sum()`, the Sequential-Halving visit
+share. The ring stores exactly that, and `ring_batch` expands it. It also feeds the
+`entropy_target_*` columns (`runner.py:178`), whose schema text reads "H of the
+**search-improved** target". The method's name claims the thing the spec promises;
+its body computes another.
+
+### Measured
+
+| reading | result |
+|---|---|
+| **Schedule census.** Sorted root visit profile, grouped by actions visited, over 600 roots (200 states × 3 evaluators) | **exactly one profile per group, under every evaluator**, in all 11 groups: 1 → [48], 2 → [24, 24], 3 → [32, 8, 8], 4 → [18, 18, 6, 6], 5 → [20, 19, 3, 3, 3], 6 → [26, 8, 8, 2, 2, 2], 8 → [14, 14, 6, 6, 2×4], 9 → [17, 16, 5, 5, 1×5], 12 → [19, 7, 7, 3, 3, 3, 1×6], 15 → [20, 6, 6, 2×4, 1×8], 16 → [11, 11, 5, 5, 2×4, 1×8] |
+| **Ceiling.** Largest share on one action | 32/48 = **0.667** on any multi-action root; a two-action root always teaches **24/24**. Mean top share **0.4519**, identical to four places under all three evaluators |
+| **Proven-worse mass, start states.** Roots with two visited children proven by the search's terminal oracle at different z | **0 of 600**: start states almost never hold two depth-1 proofs, so this reading is empty, not reassuring |
+| **Proven-worse mass, constructed.** All 40 five-action `solve_in_1` states, re-posed one step before the step cap with par = cap, so the solver is an exact at-par solve (z = 0) and the other four hit the cap (z = −1) | the search **chose the solver 40 / 40**. The target put **58.33% (28/48)** of its mass on proven losses **in every one**, 19/48 of it on a single losing action (visits [19, 3, 3, 3, 20]) |
+
+So the target's **shape** is fixed by the schedule and the visited count. Only
+**which action gets which share** carries information from the search, through
+Sequential Halving's ranking (logits + Gumbel + σ(q)). Nothing in the target
+records how much better an action proved: a proof of failure and a proof of
+success that both survive a halving round are taught at the same share.
+
+### What follows from it
+
+* **The target-entropy columns were mute.** `entropy_target_*` is the entropy of
+  a profile fixed by the visited-count mix. The target half of PREREG-m1 §6's
+  funnel signature could move only when that mix moved (F-53 review, A1-02).
+* **What π′ will and will not do in this domain (derived from the formula, not
+  measured).** Against exact par, an at-par solve has z = 0, and while the value
+  head is untrusted (`value_scale` 0) every unproven action also reads q = 0. So
+  π′ departs from the prior only where the search holds a proof: z = −1 (over par,
+  step cap, dead end) or z = +1 (beating non-exact par). Everywhere else π′ is the
+  prior, and the policy gradient is about zero. That is Gumbel's intended
+  behaviour, no improvement where search found none, and it replaces a target
+  that sharpened the prior toward Gumbel-perturbed halving survivors whether or
+  not the search had learned anything. Expect the policy signal to be sparse until
+  the value head goes live.
+* **M1's numbers are untouched.** They are instrument readings (F-53), and M1's
+  training targets were already compromised by F-53's coordinate defect.
+
+### The fix, as chosen
+
+- `train.policy_target` is added: `improved` is the new default (π′, as specced),
+  and `visits` is kept as the control arm for a later A/B.
+- π′ is computed at the end of the search, where the tree is available, and stored
+  in the ring.
+- `default.yaml` and both pinned fingerprints move once, with dated notes.
+- M1 is closed. The next campaign's PREREG registers the new fingerprint before
+  launch.
+
+The fix follows in later commits, tests first, and its post-fix reading is
+appended here.
+
+### Design (2026-11-10, before code): decisions from an independent panel
+
+Three independent designs (Gumbel-faithful, house-law minimal, failure-mode
+hunter) were scored by two judges and merged into one spec. These are the
+decisions, recorded before any code is written.
+
+**D1 — Unvisited root actions are completed with v_mix** (Danihelka et al. 2022,
+eq. 33): (v̂ + ΣN · Σ_visited softmax(logits)_a q_a) / (1 + ΣN), where v̂ is the
+network's own root evaluation.
+
+| alternative | why rejected |
+|---|---|
+| `tree.value[root]` | Max-backed. One +1 proof completes every unexplored action at +1, so π′ falls back to the prior. |
+| v̂ alone | 0 while the value head is silent. On a cap−1 losing root wider than m, it put 0.8 of π′ on four never-examined losses; v_mix put 1.9e-24 there. |
+
+Supporting measurement, 150 sampled reached states with a random-init network
+(`scratchpad/pi/design_probe2.py`):
+
+| completion | π′ mass on unvisited actions | π′ argmax on an unvisited action |
+|---|---:|---:|
+| `tree.value[root]` or v̂ | 4.0% | 6 / 150 |
+| v_mix | 0.01% | 0 / 150 |
+
+Implementation notes:
+- One formula, softmax(logits + σ(completed)), is shared with `_select`. Each
+  call site passes its own completion, so the search stays bit-identical.
+- Reckoner deliberately departs from TinyAlphaZero-v2 here. TAZ completes with
+  a visit-weighted mean, which would bring F-54's schedule back into the target,
+  and a max tree keeps no ΣW.
+
+**D2 — Exactness.**
+- Visited is decided by `visits > 0` alone. The −1.0 initialiser is also a
+  legitimate proven-loss value, so it cannot serve as the mask.
+- A tripwire raises unless a root child exists exactly where it has visits.
+- Terminal children keep their exact z.
+- π′ is computed in float64 and stored as float32, once.
+
+**D3 — Storage.**
+- `RING_FORMAT` 3 appends three fields:
+  - `improved_actions`: int32[128], dense action indices;
+  - `improved_probs`: float32[128];
+  - `improved_tail`: the float64 sum of the π′ mass not stored.
+- They are appended at the end of the field list, because `absent_mask` bits are
+  field positions.
+- **K = 128**, as the smallest multiple of 32 that is at least 1.5 × the largest
+  legal-action count seen on reached states (83: median 27, p90 48, p99 69). The
+  rule is tied to width, not to how peaked a network happens to be.
+- A record whose tail exceeds 1e-6 sits out of training and is counted, the
+  StateTooLarge precedent: never cropped, never renormalised.
+- The visit fields are kept byte-identical, so one ring serves both arms.
+- Size: 2,586 B per record, 1.20 GiB at 500,000 records.
+- A format-2 ring loads with its π′ fields era-absent.
+  - Under `improved`, `train_on_ring` refuses it.
+  - Under `visits`, it trains as before.
+  - `check_resumable` refuses a pre-format-3 ring under both arms, because the
+    fingerprint moved.
+
+**D4 — API.**
+- `SearchResult` gains `improved`: required, keyword-only, slot-indexed float32.
+- The mislabelled `improved_policy()` is renamed `visit_share()`, with no alias.
+
+**D5 — Instruments.** `SCHEMA_ERA` goes from 3 to 4.
+- `entropy_target_*` is redefined to H(π′). It moves to `since=4` with a reason;
+  its schema text, "H of the search-improved target", becomes true.
+- New columns carry the old reading and add the instrument that moves while the
+  value head is silent:
+  - `entropy_visits_*`: H(visit share);
+  - `kl_improved_prior_*`: KL(π′‖prior);
+  - `ring_improved_truncated`: a premise-zero counter.
+- Two runner tests assumed H(target) ≠ H(prior). Under π′, the two are exactly
+  equal wherever search found nothing, which is correct. They move to the
+  visit-share column and gain π′ cases in both polarities.
+
+**D6 — Governance.**
+- `train.policy_target`: `improved` by default, `visits` as the control arm,
+  checked by `validate()`, with a line in `default.yaml`.
+- Both fingerprints move once. A test proves that deleting only that key
+  recovers M1's pair.
+- M1's pair is kept as literals for the M1-era script that verifies M1 rows.
+- `policy_target` is read only by `ring_batch` and `train_on_ring`. A test pins
+  that it is never read inside the measurement closure.
+- `evaluate_head` is pinned to the `visits` population, so the policy lever
+  cannot move the value switch's criterion.
+- **The control arm's identity with pre-change training is shown by a
+  cross-commit digest script, not argued.**
+
+**Restating a sentence above, under v_mix.** "π′ departs from the prior only
+where the search holds a proof" holds among visited actions. A visited proof
+also shifts every unvisited action, through v_mix. That is intended: an unknown
+action outranks a proven loss.
+
+**Registered and not done here, because each would change the search (a second
+lever) or is a later round:**
+- `_select` still completes with the max-backed node value;
+- an unvisited root action that is itself terminal gets v_mix, not its exact z;
+- with sims < m, the −1.0 sentinel enters halving;
+- σ's temperature (`c_visit` 50, `c_scale` 1.0, both still provisional) becomes
+  load-bearing;
+- the next PREREG re-declares the funnel on `kl_improved_prior_*`.
+
+### Amendment (2026-11-11): the fix, its independent review, and the post-fix reading
+
+**Commits.**
+- `afbfb6e`: the implementation.
+- `7e98f1c`: fixes from a five-lens independent review (formula and search, ring
+  and storage, training and arms, instruments and schema, governance and tests),
+  with a skeptic per material finding.
+
+**Post-fix reading.** `scripts/f54_policy_target_probe.py` at `7e98f1c`, clean
+tree, same 200 states, same evaluators:
+
+| reading | visit share (unchanged) | π′ (the target now) |
+|---|---|---|
+| constructed proofs, 40 roots: mass on proven losses | **0.583333** in every root | **max 1.59e-30** |
+| search chose the solver | 40 / 40 | 40 / 40 (the search is unchanged) |
+| mean top share, uniform stub / random net v0 / v1 | 0.4519 / 0.4519 / 0.4519 | **0.2547 / 0.9374 / 0.9490** |
+
+The schedule census reads exactly as before: one visit profile per group in all
+11 groups, because the search did not change. The target no longer has that
+property: its shape now depends on what the network and the search said.
+
+**The control arm is the old training, shown by derivation.**
+`scripts/f54_visits_arm_identity.py` compares base `6a9b18f` with `7e98f1c`
+under `train.policy_target = 'visits'`. Verdict: **IDENTICAL**.
+
+| check | result |
+|---|---|
+| ring records | the same 590 |
+| ring arrays both trees store | all 14 byte-identical |
+| trained weights after 20 ring-only steps | identical, `59285c80…` |
+| per-step losses | identical |
+| visit-share entropy (old `entropy_target` vs new `entropy_visits`) | identical |
+| `'improved'` weights | **different**: `f9dec23e…` |
+
+The same verdict was also reached at `afbfb6e`.
+
+**Fingerprints.** They moved once: campaign `58fb79f9…`, eval `88c6adab…`.
+Deleting `train.policy_target` alone recovers M1's `8443847b…` / `c8aa1fcc…`
+exactly. The proof now lives in `tests/test_f54_governance.py` and runs in a
+clean clone.
+
+**Corrections from the review.** Each supersedes the line of the Design
+amendment named; none is edited in place.
+
+- **D3's K = 128 is superseded by K = 160.**
+  - 128 was sized on uniform-stub episodes over the frozen suites (widest 83).
+  - The review measured **103** legal actions on rings that a random-init
+    network fills from generator problems: weak-policy, capped episodes (117
+    records; median 44, p90 91.4; 22 records of width 83 or more).
+  - The registered rule (smallest multiple of 32 ≥ 1.5 × widest) gives 160.
+  - Record size is 2,846 B, which is 1.33 GiB at 500,000.
+- **D3's "a record whose tail exceeds 1e-6 sits out of training" is superseded.**
+  - Now: a truncated record has its **policy target withheld** (`policy_rows`),
+    and it still trains the value and steps heads.
+  - As first built, such rows left the batch, so the policy lever changed the
+    value head's training population (mostly capped z = −1 rows).
+  - A batch of only-wide rows also returned nothing, and its rows were counted
+    as encode skips.
+- **D3's "exact" tail is now true.** The tail is stored as float64. The writer
+  had decided on float64 while the reader read float32.
+- **D1's formula, written precisely:** v_mix = (v̂ + ΣN · Σ_visited π_V(a) q_a) /
+  (1 + ΣN), with π_V = π(a) / Σ_visited π(b). The code always computed this.
+  The written form read as the full-vector softmax. The prior weighting was also
+  untested: every vector used flat logits with the visited slots first, and a
+  plain-mean mutant passed all 55 π′ tests. A pinned vector with non-flat logits
+  and non-leading visited slots now kills that mutant.
+- **D5 said `entropy_target_*` equals H(prior) "exactly" where search found
+  nothing.** It is equal up to float32 rounding. `kl_improved_prior_*` is the
+  exact test, and it is exactly 0 there, because it is compared at the target's
+  float32 precision. The KL now uses the float64 prior wherever the float32 cast
+  underflows. As first built, a legal action about 104 nats below the favourite
+  could make this diagnostic raise and halt self-play.
+- **The schema redefinition now does work.** `validate_row` keeps a redefined
+  column (one with `since_reason`) required in the eras it existed in; only
+  added columns get era absence. As first built, moving `entropy_target_*` to
+  `since=4` let an era-1..3 row drop a column those eras required.
+- **The governance tests had been skipping in every clean clone.**
+  `tests/test_campaign_driver.py` carries a module-wide anchor gate. The one-key
+  proof, the M1 literals test and the door's two pins now run in
+  `tests/test_f54_governance.py`. The vacuous "other polarity" was replaced by
+  one that can fail.
+- **Reproducibility, measured: π′ inherits batch-composition rounding.** A
+  network's leaf values differ by up to 1.2e-7 between the sequential and the
+  batched search path. π′ carries that difference; the integer visit share did
+  not. The campaign uses one path consistently and reproduces run to run.
+
+**Tests, in this clone.**
+
+| | passed | failed | skipped |
+|---|---:|---:|---:|
+| `7e98f1c` | **950** | 22 | 24 |
+| baseline | 869 | 22 | 24 |
+
+The 22 failures are **identical by name** to baseline. Every one needs
+gitignored data (`runs/data/*/tokens.i32`, `runs/phase1/phase1.pt`).
+`make lint` is green.
+
+**Still to run on the box that holds the data, before any campaign uses this:**
+1. the full suite;
+2. the campaign resume tests under `'improved'`;
+3. a full uniform-stub iteration through `train_on_ring` at
+   `rehearsal_frac = 0.65` (the supervised rows now meet the loss's
+   illegal-target refusal too);
+4. the control-arm identity at `rehearsal_frac = 0.65`.
+
+**Not done here, and registered:**
+- an era-aware reader (`field_value`) for cross-era columns;
+- `_select`'s max-backed completion;
+- exact z for unvisited terminal root actions;
+- the −1.0 sentinel when sims < m;
+- σ's temperature, still provisional;
+- the next PREREG's funnel, declared on `kl_improved_prior_*` with its
+  four-tuple.
+
+### Amendment (2026-11-11, later): the box-side readings, on the host that holds the data
+
+Host: the local EVO-X2, torch 2.13.0+rocm7.2, all runs on CPU. Tree: `1f6ea1b`
+plus the working-tree changes this amendment commits (two new scripts, one
+flag, one test double). The "still to run" list above, in order.
+
+**1. The full suite.** `make lint` green. `make test`, data present:
+
+| run | passed | failed | skipped |
+|---|---:|---:|---:|
+| `1f6ea1b` as pushed | 995 | **1** | 0 |
+| with this amendment's changes | **996** | 0 | 0 |
+
+- The one failure was `tests/test_valuegate.py::test_training_never_samples_a_held_out_row`.
+  Its `OnlyHeldOut` ring double had no `era_absent`, which `train_on_ring` has
+  called first since F-53's fix (`23939c6`). It fails identically on merged
+  `main` (`b2745d9`). It needs `train_100k`'s data, so no clean clone could
+  see it. The double now delegates `era_absent` to the real ring; the
+  assertion is unchanged.
+- An intermediate run failed
+  `test_no_runs_data_literal_escapes_the_governed_modules` on this
+  amendment's own first draft of the flag below. The script now goes through
+  `DATA_ROOT` / `anchored_data`. The scan did its job.
+- The cloud's 24 skips are 0 here: the anchor and the data are present.
+
+**2. Campaign resume under `'improved'`.** `tests/test_campaign_resume.py`
+builds on `Config()`, so it runs `'improved'` at `rehearsal_frac = 0.65`.
+**5 / 5 passed** in every full run above.
+
+**3a. Legality of every supervised target, first.**
+`scripts/f54_supervision_legality.py` (new) walks every row through the decode →
+`encode` path `make_batch` uses and tests the stored action against the derived
+`legal_mask`, with the dataset re-digested against ANCHORS before reading.
+
+| dataset | rows | checked | too large | illegal targets |
+|---|---:|---:|---:|---:|
+| `phase1_train` | 311,741 | 311,741 | 0 | **0** |
+| `phase1_eval` | 6,570 | 6,570 | 0 | **0** |
+
+Zero at every depth 1–6 in both. Before this, 64 rows had been checked.
+Other polarity, on 2,000 rows drawn by `sample_indices`: all 2,000 stored
+actions legal; the same actions shifted by one index were refused in 1,848
+(median legal width 3, max 9, of 1,344), so the check can fail. So
+`IllegalTargetError` cannot be raised by a supervised row of either set.
+
+**3b. One full iteration through `train_on_ring`.**
+`scripts/f54_box_iteration.py` (new): default config (fingerprint `58fb79f9…`,
+`'improved'`, `rehearsal_frac` 0.65, batch 128), 400 suite problems (40 from
+each of 10 suites), self-play under the uniform stub into a fresh ring, then 400
+steps on the Phase-1 anchor, 8 threads. Verdict **RAN_CLEAN**.
+
+| reading | value |
+|---|---:|
+| episodes / solved | 400 / 139 |
+| ring records | 6,749 |
+| steps (requested 400) | 400 |
+| rehearsal batches | 400 |
+| ring examples | 18,000 |
+| `encode_skips` / `nan_skips` / `improved_truncated` | 0 / 0 / 0 |
+| illegal-target refusal | none |
+| loss, first → last (all finite) | 59.978 → 14.852 |
+| seconds, self-play / train | 141.0 / 936.8 |
+
+This shows the path runs end to end and nothing is refused or skipped. It is
+not a reading of whether `'improved'` trains better; no such claim is made.
+
+**4. The control-arm identity with rehearsal on.**
+`scripts/f54_visits_arm_identity.py` gains `--rehearsal-frac` (default 0.0, the
+reading recorded above). Above 0.0 the exported base tree gets a byte copy of
+ANCHORS and `phase1_train`, because the anchor gate resolves against each
+tree's own root; the verdict additionally requires both trees to have mapped
+the same supervision bytes and to have run a rehearsal batch on every step.
+Base `6a9b18f` against this tree under `'visits'`:
+
+| | `rehearsal_frac` 0.65 | `rehearsal_frac` 0.0 (re-run here) |
+|---|---|---|
+| verdict | **IDENTICAL** | **IDENTICAL** |
+| ring records / arrays | 590 / all 14 byte-identical | the same |
+| weights, base = `'visits'` | `f77078c0…` | `49ff370e…` |
+| weights, `'improved'` | `9bd775c6…` (different) | `5666e266…` (different) |
+| per-step losses, visit-share entropy | identical | identical |
+| rehearsal batches, base / visits / improved | 20 / 20 / 20 | 0 / 0 / 0 |
+| supervision bytes | identical, `15f01b1f…` | not opened |
+
+The 0.0 weights here (`49ff370e…`) are not the cloud's `59285c80…`. The cloud
+ran torch 2.13.0+cpu and this box runs the ROCm build on CPU; the comparison
+is within one host, where base and `'visits'` agree bit for bit on both.
+
+**Found on this box, and not acted on: the record has forked.** This host's
+`main` carries five commits from 2026-08-22 (`345070a`..`3136cd3`) that were
+never pushed, so F-53 and F-54 were built on a `main` that lacks them.
+- They append their own F-41 through F-49 to this file. Those numbers collide
+  with this finding and the one before it, as first numbered (F-42 and F-41).
+- `3136cd3` adds `campaign.device` and moved the pinned pair to `ccfec081…` /
+  `fd53b63f…`. This branch's `58fb79f9…` / `88c6adab…` were derived without
+  that key. A merged tree will pin a third pair, and the one-key proof in
+  `tests/test_f54_governance.py` will need restating against it.
+- A trial merge conflicts in this file, `PREREG-m1.md`, `RUNLOG-m1.md`,
+  `AMENDMENT-m1a4.md`, `src/reckoner/campaign.py` and `tests/test_resume.py`.
+- They also commit M1's evidence rows (`runs/pod_pull_20260822/`).
+
+Every reading in this amendment is of this branch as pushed, without those
+five commits. Reconciling the two histories, including which findings are
+renumbered, is the principal's decision and is not made here.
+
+### Amendment (2026-11-11, after the rebase): renumbered, rebased onto the local record, and read again
+
+**Ruled by the principal, verbatim:** *"Push local main first and rebase the
+branch onto it"*.
+
+**What was done.**
+- The local `main` (five commits from 2026-08-22, F-41 through F-52) was merged
+  with the remote `main` (PR #1) and pushed as `bd868f1`. PR #1's finding is
+  F-53 there.
+- **This finding was written as F-42 and is F-54 from here on.** Every
+  reference in the tree moved with it, including file names
+  (`scripts/f42_*.py` → `scripts/f54_*.py`, `tests/test_f42_governance.py` →
+  `tests/test_f54_governance.py`). The fork paragraph in the amendment above
+  names the old numbers on purpose.
+- The branch's seven commits were rebased onto that `main`, so **every SHA
+  cited above this amendment names a commit of the pre-rebase history.** That
+  history is kept under the tag `cloud-f41-f42-original` (`87d10d6`). At those
+  commits the files and the text carry the old numbers.
+
+**The fingerprints, restated. This supersedes every `58fb79f9…` / `88c6adab…`
+above; none is edited in place.** Those were derived without
+`campaign.device`, on a tree that never held it. The door now pins:
+
+| pair | campaign | eval | moved by |
+|---|---|---|---|
+| M1 (closed) | `8443847b…` | `c8aa1fcc…` | — |
+| device era, no campaign ran under it | `ccfec081…` | `fd53b63f…` | `campaign.device` (2026-08-22, after F-51) |
+| **pinned now** | **`1a2f3aad…`** | **`15f63cc2…`** | `train.policy_target` (F-54) |
+
+- The one-key proof is restated as two steps in
+  `tests/test_f54_governance.py`: deleting `train.policy_target` recovers the
+  device-era pair exactly, and deleting `campaign.device` as well recovers
+  M1's. The other polarity fails both steps when a second value moves.
+- `campaign.py` keeps one literal for M1's pair (`M1_ERA_FINGERPRINTS`, from
+  the local record). The `M1_*` names this branch introduced are bound to it.
+- "They moved once" above is true of F-54's own move and is no longer the
+  whole history: twice since M1, one key each time.
+
+**Read again on the rebased tree** (`e9a6401` plus this amendment's changes,
+same host, same torch):
+
+| reading | result |
+|---|---|
+| `make lint` | green |
+| `make test` | **1004 passed**, 0 failed, 0 skipped |
+| legality, `phase1_train` / `phase1_eval` | 311,741 / 6,570 rows, **0 illegal**, 0 too large |
+| identity at `rehearsal_frac` 0.65, base `89b4095` | **IDENTICAL**; weights `f77078c0…`, `'improved'` `9bd775c6…` |
+| identity at 0.0, base `89b4095` | **IDENTICAL**; weights `49ff370e…`, `'improved'` `5666e266…` |
+| identity at 0.65, base `6a9b18f` (the pre-rebase design commit) | **IDENTICAL**; the same weights |
+| full iteration at 0.65, `'improved'`, fingerprint `1a2f3aad…` | **RAN_CLEAN**: 400 / 400 steps, 400 rehearsal batches, 0 skips, loss 59.978 → 14.852 |
+
+- Every weight digest equals its pre-rebase value, and the iteration's trained
+  weights are the same `50032463…` before and after. The five local commits
+  and the renumbering changed nothing the training path computes.
+- The identity script's default base is now `89b4095`, the design commit after
+  the rebase. `6a9b18f` still works by name while the tag exists.
+
+**Still open, and unchanged by any of this:** no PREREG registers the pinned
+pair yet, and the "not done here, and registered" list above stands.

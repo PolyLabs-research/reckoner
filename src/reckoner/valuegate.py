@@ -162,7 +162,12 @@ def evaluate_head(model, ring, cfg, slots: Sequence[int]) -> tuple[list[int], li
 
     if not slots:
         return [], []
-    batch = ring_batch(ring, list(slots), cfg)
+    # The switch criterion's population is pinned to the pre-F-54 row rule. Under
+    # 'improved' a row with a cropped π′ sits out of the batch, so reading the
+    # configured target here would let the POLICY lever move the population the
+    # VALUE switch is judged on. The value labels and inputs are the same either
+    # way; only who is in the population could differ, and now cannot (F-54).
+    batch = ring_batch(ring, list(slots), cfg, target="visits")
     if batch is None:
         return [], []
     model.eval()
