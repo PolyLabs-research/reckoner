@@ -3712,3 +3712,108 @@ gitignored data (`runs/data/*/tokens.i32`, `runs/phase1/phase1.pt`).
 - σ's temperature, still provisional;
 - the next PREREG's funnel, declared on `kl_improved_prior_*` with its
   four-tuple.
+
+### Amendment (2026-11-11, later): the box-side readings, on the host that holds the data
+
+Host: the local EVO-X2, torch 2.13.0+rocm7.2, all runs on CPU. Tree: `1f6ea1b`
+plus the working-tree changes this amendment commits (two new scripts, one
+flag, one test double). The "still to run" list above, in order.
+
+**1. The full suite.** `make lint` green. `make test`, data present:
+
+| run | passed | failed | skipped |
+|---|---:|---:|---:|
+| `1f6ea1b` as pushed | 995 | **1** | 0 |
+| with this amendment's changes | **996** | 0 | 0 |
+
+- The one failure was `tests/test_valuegate.py::test_training_never_samples_a_held_out_row`.
+  Its `OnlyHeldOut` ring double had no `era_absent`, which `train_on_ring` has
+  called first since F-53's fix (`23939c6`). It fails identically on merged
+  `main` (`b2745d9`). It needs `train_100k`'s data, so no clean clone could
+  see it. The double now delegates `era_absent` to the real ring; the
+  assertion is unchanged.
+- An intermediate run failed
+  `test_no_runs_data_literal_escapes_the_governed_modules` on this
+  amendment's own first draft of the flag below. The script now goes through
+  `DATA_ROOT` / `anchored_data`. The scan did its job.
+- The cloud's 24 skips are 0 here: the anchor and the data are present.
+
+**2. Campaign resume under `'improved'`.** `tests/test_campaign_resume.py`
+builds on `Config()`, so it runs `'improved'` at `rehearsal_frac = 0.65`.
+**5 / 5 passed** in every full run above.
+
+**3a. Legality of every supervised target, first.**
+`scripts/f54_supervision_legality.py` (new) walks every row through the decode →
+`encode` path `make_batch` uses and tests the stored action against the derived
+`legal_mask`, with the dataset re-digested against ANCHORS before reading.
+
+| dataset | rows | checked | too large | illegal targets |
+|---|---:|---:|---:|---:|
+| `phase1_train` | 311,741 | 311,741 | 0 | **0** |
+| `phase1_eval` | 6,570 | 6,570 | 0 | **0** |
+
+Zero at every depth 1–6 in both. Before this, 64 rows had been checked.
+Other polarity, on 2,000 rows drawn by `sample_indices`: all 2,000 stored
+actions legal; the same actions shifted by one index were refused in 1,848
+(median legal width 3, max 9, of 1,344), so the check can fail. So
+`IllegalTargetError` cannot be raised by a supervised row of either set.
+
+**3b. One full iteration through `train_on_ring`.**
+`scripts/f54_box_iteration.py` (new): default config (fingerprint `58fb79f9…`,
+`'improved'`, `rehearsal_frac` 0.65, batch 128), 400 suite problems (40 from
+each of 10 suites), self-play under the uniform stub into a fresh ring, then 400
+steps on the Phase-1 anchor, 8 threads. Verdict **RAN_CLEAN**.
+
+| reading | value |
+|---|---:|
+| episodes / solved | 400 / 139 |
+| ring records | 6,749 |
+| steps (requested 400) | 400 |
+| rehearsal batches | 400 |
+| ring examples | 18,000 |
+| `encode_skips` / `nan_skips` / `improved_truncated` | 0 / 0 / 0 |
+| illegal-target refusal | none |
+| loss, first → last (all finite) | 59.978 → 14.852 |
+| seconds, self-play / train | 141.0 / 936.8 |
+
+This shows the path runs end to end and nothing is refused or skipped. It is
+not a reading of whether `'improved'` trains better; no such claim is made.
+
+**4. The control-arm identity with rehearsal on.**
+`scripts/f54_visits_arm_identity.py` gains `--rehearsal-frac` (default 0.0, the
+reading recorded above). Above 0.0 the exported base tree gets a byte copy of
+ANCHORS and `phase1_train`, because the anchor gate resolves against each
+tree's own root; the verdict additionally requires both trees to have mapped
+the same supervision bytes and to have run a rehearsal batch on every step.
+Base `6a9b18f` against this tree under `'visits'`:
+
+| | `rehearsal_frac` 0.65 | `rehearsal_frac` 0.0 (re-run here) |
+|---|---|---|
+| verdict | **IDENTICAL** | **IDENTICAL** |
+| ring records / arrays | 590 / all 14 byte-identical | the same |
+| weights, base = `'visits'` | `f77078c0…` | `49ff370e…` |
+| weights, `'improved'` | `9bd775c6…` (different) | `5666e266…` (different) |
+| per-step losses, visit-share entropy | identical | identical |
+| rehearsal batches, base / visits / improved | 20 / 20 / 20 | 0 / 0 / 0 |
+| supervision bytes | identical, `15f01b1f…` | not opened |
+
+The 0.0 weights here (`49ff370e…`) are not the cloud's `59285c80…`. The cloud
+ran torch 2.13.0+cpu and this box runs the ROCm build on CPU; the comparison
+is within one host, where base and `'visits'` agree bit for bit on both.
+
+**Found on this box, and not acted on: the record has forked.** This host's
+`main` carries five commits from 2026-08-22 (`345070a`..`3136cd3`) that were
+never pushed, so F-53 and F-54 were built on a `main` that lacks them.
+- They append their own F-41 through F-49 to this file. Those numbers collide
+  with this finding and the one before it, as first numbered (F-42 and F-41).
+- `3136cd3` adds `campaign.device` and moved the pinned pair to `ccfec081…` /
+  `fd53b63f…`. This branch's `58fb79f9…` / `88c6adab…` were derived without
+  that key. A merged tree will pin a third pair, and the one-key proof in
+  `tests/test_f54_governance.py` will need restating against it.
+- A trial merge conflicts in this file, `PREREG-m1.md`, `RUNLOG-m1.md`,
+  `AMENDMENT-m1a4.md`, `src/reckoner/campaign.py` and `tests/test_resume.py`.
+- They also commit M1's evidence rows (`runs/pod_pull_20260822/`).
+
+Every reading in this amendment is of this branch as pushed, without those
+five commits. Reconciling the two histories, including which findings are
+renumbered, is the principal's decision and is not made here.
