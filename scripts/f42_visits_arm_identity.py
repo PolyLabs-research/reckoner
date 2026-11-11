@@ -25,6 +25,17 @@ are too slow on a 4-CPU box; the search's own bit-identity under a network is
 tested in-process (``tests/test_improved_target.py``).
 
     python scripts/f42_visits_arm_identity.py --base 6a9b18f --out /tmp/f42_identity.json
+
+``--rehearsal-frac`` (added 2026-11-11, on the box that holds the data) repeats
+the comparison with the supervised share wired in. The default stays 0.0, the
+reading F-42 recorded. Above 0.0 ``train_on_ring`` opens ``phase1_train`` through
+the anchor gate, which resolves against each tree's OWN root, so the exported
+base tree is given a byte copy of ``runs/ANCHORS.sha256`` and
+``runs/data/phase1_train`` (a symlink would resolve outside the tree and the
+gate would refuse it). Each tree then reports the digest of the supervision
+arrays it actually mapped, and the verdict requires them equal, plus
+``rehearsal_batches == steps`` on both sides so an arm that silently trained no
+supervised rows cannot pass.
 """
 
 from __future__ import annotations
@@ -32,10 +43,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+
+from reckoner.dataset import DATA_ROOT, anchored_data, anchors_path
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -56,9 +70,9 @@ from reckoner.runner import run_iteration
 from reckoner.search import uniform_stub
 from reckoner.train import train_on_ring
 
-suites, target = Path(sys.argv[1]), sys.argv[2]
+suites, target, frac = Path(sys.argv[1]), sys.argv[2], float(sys.argv[3])
 cfg = Config()
-cfg = replace(cfg, train=replace(cfg.train, rehearsal_frac=0.0))
+cfg = replace(cfg, train=replace(cfg.train, rehearsal_frac=frac))
 if hasattr(cfg.train, "policy_target"):
     cfg = replace(cfg, train=replace(cfg.train, policy_target=target))
 problems = []
@@ -86,8 +100,19 @@ if not visits_entropy:  # the base tree: its target column WAS the visit share
     visits_entropy = {
         k.replace("entropy_target", "VISIT_SHARE"): v for k, v in ent.items() if k.startswith("entropy_target")
     }
+supervision = None
+if frac > 0.0:
+    from reckoner.dataset import DATA_ROOT
+    sup_dir = Path(reckoner.__file__).resolve().parents[2] / DATA_ROOT / "phase1_train"
+    sup_digest = hashlib.sha256()
+    for name in sorted(p.name for p in sup_dir.iterdir()):
+        sup_digest.update(name.encode()); sup_digest.update((sup_dir / name).read_bytes())
+    supervision = sup_digest.hexdigest()
 print(json.dumps({
     "source": str(Path(reckoner.__file__).resolve().parent),
+    "rehearsal_frac": cfg.train.rehearsal_frac,
+    "rehearsal_batches": getattr(train, "rehearsal_batches", None),
+    "supervision": supervision,
     "records": len(ring),
     "ring_arrays": arrays,
     "weights": digest.hexdigest(),
@@ -98,9 +123,9 @@ print(json.dumps({
 """
 
 
-def _run(tree_src: Path, suites: Path, target: str) -> dict:
+def _run(tree_src: Path, suites: Path, target: str, frac: float) -> dict:
     out = subprocess.run(
-        [sys.executable, "-c", FIXTURE, str(suites), target],
+        [sys.executable, "-c", FIXTURE, str(suites), target, repr(frac)],
         env={**os.environ, "PYTHONPATH": str(tree_src), "PYTHONHASHSEED": "0"},
         capture_output=True,
         text=True,
@@ -113,7 +138,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--base", default="6a9b18f")
     parser.add_argument("--out", type=Path, default=None)
+    parser.add_argument(
+        "--rehearsal-frac",
+        type=float,
+        default=0.0,
+        help="train.rehearsal_frac for all three runs; above 0.0 needs runs/data/phase1_train",
+    )
     args = parser.parse_args()
+    frac = args.rehearsal_frac
 
     suites = REPO / "runs" / "suites"
     with tempfile.TemporaryDirectory() as scratch:
@@ -123,9 +155,16 @@ def main() -> int:
             ["git", "-C", str(REPO), "archive", args.base, "src"], capture_output=True, check=True
         )
         subprocess.run(["tar", "-x", "-C", str(base_tree)], input=archive.stdout, check=True)
-        base = _run(base_tree / "src", suites, "visits")
-    visits = _run(REPO / "src", suites, "visits")
-    improved = _run(REPO / "src", suites, "improved")
+        if frac > 0.0:
+            anchors = anchors_path(REPO).relative_to(REPO)
+            (base_tree / DATA_ROOT).mkdir(parents=True)
+            shutil.copy2(REPO / anchors, base_tree / anchors)
+            shutil.copytree(
+                anchored_data("phase1_train", verify=True), base_tree / DATA_ROOT / "phase1_train"
+            )
+        base = _run(base_tree / "src", suites, "visits", frac)
+    visits = _run(REPO / "src", suites, "visits", frac)
+    improved = _run(REPO / "src", suites, "improved", frac)
 
     common = sorted(set(base["ring_arrays"]) & set(visits["ring_arrays"]))
     checks = {
@@ -139,6 +178,13 @@ def main() -> int:
         == visits["visit_share_entropy"],
         "improved_changes_the_weights": improved["weights"] != visits["weights"],
     }
+    if frac > 0.0:
+        checks["same_supervision_bytes"] = (
+            base["supervision"] is not None and base["supervision"] == visits["supervision"]
+        )
+        checks["rehearsal_ran_every_step"] = (
+            base["rehearsal_batches"] == base["steps"] == visits["rehearsal_batches"] > 0
+        )
     head = subprocess.run(
         ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True, check=True
     ).stdout.strip()
@@ -148,6 +194,13 @@ def main() -> int:
         "common_ring_arrays": common,
         "records": visits["records"],
         "steps": visits["steps"],
+        "rehearsal_frac": frac,
+        "rehearsal_batches": {
+            "base": base["rehearsal_batches"],
+            "visits": visits["rehearsal_batches"],
+            "improved": improved["rehearsal_batches"],
+        },
+        "supervision": visits["supervision"],
         "weights": {
             "base": base["weights"],
             "visits": visits["weights"],

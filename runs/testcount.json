@@ -1,11 +1,11 @@
 {
-  "collected": 915,
+  "collected": 996,
   "error": 0,
   "exitstatus": 0,
   "failed": 0,
-  "passed": 915,
+  "passed": 996,
   "selected": [
-    "tests"
+    "tests/"
   ],
   "skipped": 0,
   "whole_suite": true,

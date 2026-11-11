@@ -325,6 +325,12 @@ def test_training_never_samples_a_held_out_row() -> None:
         def get(self, i):
             return self._inner.get(i)
 
+        def era_absent(self, name):
+            # F-41/F-42: train_on_ring asks the ring for stale records before
+            # anything else. Delegated, so the real ring's answer (none) is the
+            # one that lets this reach the holdout logic under test.
+            return self._inner.era_absent(name)
+
     stats = train_on_ring(Reckoner(cfg), OnlyHeldOut(ring, reserved), cfg, steps=3, seed=0)
     assert stats.steps == 0, "training consumed rows reserved for evaluation"
 
