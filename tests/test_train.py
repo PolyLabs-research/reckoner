@@ -107,9 +107,12 @@ def test_crop_never_cuts_below_a_site_position() -> None:
 def test_batch_targets_are_legal_actions() -> None:
     """A one-hot policy target under a masked-off action trains toward nothing.
 
-    ``policy_loss`` scores only legal actions, so a target on an illegal one is
-    silently dropped rather than loudly rejected — the mask hides the defect it
-    is meant to expose. This asserts the two agree on the data as built.
+    ``policy_loss`` scores only legal actions, so a target on an illegal one was
+    silently dropped rather than loudly rejected — the mask hid the defect it was
+    meant to expose. This guarded the supervised path only; the ring path had the
+    same hazard unguarded and lost 93% of its visit mass to it (F-53). Since F-53
+    ``policy_loss`` itself raises on off-legal target mass; this remains as the
+    check on the data as built, before any loss sees it.
     """
     data = SupervisionSet(DATA)
     rng = random.Random(1)

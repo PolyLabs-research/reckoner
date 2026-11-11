@@ -325,6 +325,51 @@ def test_policy_loss_ignores_masked_off_logits() -> None:
     assert policy_loss(moved, targets, mask).item() != before
 
 
+def test_policy_loss_refuses_target_mass_on_an_illegal_action() -> None:
+    """F-53: target mass off the legal set is REFUSED, never silently dropped.
+
+    The masked log-probability is ``-inf`` there and ``nan_to_num`` turned the
+    product into exactly 0, so an illegal target contributed nothing and said
+    nothing — 93% of the ring's visit mass went that way for all of M1. The mask
+    on *logits* is a detector; on *targets* it was a silencer.
+    """
+    from reckoner.model import IllegalTargetError
+
+    mask = torch.zeros(2, N_RULES * CFG.model.max_sites, dtype=torch.bool)
+    mask[:, [3, 17, 400]] = True
+    logits = torch.randn(2, N_RULES * CFG.model.max_sites)
+    targets = mask.float() / 3
+    targets[1, 17] = 0.0
+    targets[1, 5] = 1 / 3  # cell 5 is not legal in row 1
+    with pytest.raises(IllegalTargetError, match="F-53"):
+        policy_loss(logits, targets, mask)
+
+
+def test_policy_loss_accepts_a_target_that_is_entirely_legal() -> None:
+    """The other polarity — a detector that always fires is not a gate either."""
+    mask = torch.zeros(2, N_RULES * CFG.model.max_sites, dtype=torch.bool)
+    mask[0, [3, 17, 400]] = True
+    mask[1, [0, 1]] = True
+    targets = torch.zeros_like(mask, dtype=torch.float32)
+    targets[0, 17] = 1.0
+    targets[1, [0, 1]] = 0.5
+    loss = policy_loss(torch.randn_like(targets), targets, mask)
+    assert torch.isfinite(loss)
+
+
+def test_policy_loss_refuses_mass_on_a_row_with_no_legal_action() -> None:
+    """The ``nan_to_num`` path exists for rows with no legal action; their target
+    must be empty, or the same silence returns by another door."""
+    from reckoner.model import IllegalTargetError
+
+    mask = torch.zeros(1, N_RULES * CFG.model.max_sites, dtype=torch.bool)
+    targets = torch.zeros(1, N_RULES * CFG.model.max_sites)
+    assert policy_loss(torch.randn_like(targets), targets, mask).item() == 0.0
+    targets[0, 0] = 1.0
+    with pytest.raises(IllegalTargetError):
+        policy_loss(torch.randn_like(targets), targets, mask)
+
+
 def test_steps_loss_ignores_unsolved_rows() -> None:
     """The same detector on the auxiliary head — a mask declared is not a mask."""
     steps = torch.tensor([2.0, 5.0, 9.0])

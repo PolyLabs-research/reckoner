@@ -30,6 +30,7 @@ from pathlib import Path
 from reckoner.campaign import ANCHOR, CAMPAIGN_FINGERPRINT, run_campaign
 from reckoner.config import Config, validate
 from reckoner.dataset import git_sha
+from reckoner.resume import check_resumable
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -44,6 +45,12 @@ def main() -> int:
     run_dir: Path = args.run_dir
     run_dir.mkdir(parents=True, exist_ok=True)
     summary_path = run_dir / "campaign_summary.json"
+
+    # Refuse BEFORE the first write below. The identity stub overwrites
+    # campaign_summary.json, so a refusal that arrived later — inside
+    # run_campaign's resume — would leave a completed run's summary replaced by
+    # a "started" stub for a run that never started (F-53 review). Read-only.
+    check_resumable(run_dir)
 
     # THE PILOT LAW, ON THIS SCRIPT'S OWN OUTPUT PATH (D-A1 §3). The loop's
     # pre-flight smokes the ROW classes; it cannot smoke the summary file this

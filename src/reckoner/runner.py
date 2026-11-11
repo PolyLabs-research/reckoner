@@ -52,7 +52,7 @@ from reckoner.config import Config
 from reckoner.episode import Problem, encode_state, verify
 from reckoner.expr import Expr
 from reckoner.logschema import STEPS_MINUS_PAR_BINS
-from reckoner.model import StateTooLarge, encode
+from reckoner.model import StateTooLarge, action_index, encode
 from reckoner.replay import ReplayRing
 from reckoner.rules import apply, legal_actions
 from reckoner.search import Evaluator, SearchResult, run_batched
@@ -270,6 +270,28 @@ def run_iteration(
     return stats
 
 
+def ring_visits(result: SearchResult, width: int, max_sites: int) -> tuple[np.ndarray, np.ndarray]:
+    """A root's top-``width`` visits as ``(dense action indices, counts)``.
+
+    Two coordinate systems meet here, and this is the one place they are
+    converted. ``result.visits`` is indexed by **root slot** — position in
+    ``result.actions``, which is ``legal_actions(expr)`` order. The ring stores
+    **dense action indices** (``rule * max_sites + site``), the layout the policy
+    head emits and ``train.ring_batch`` expands into.
+
+    Storing the slot was F-53: slot j can only ever reach cell j, which is
+    ``eval_add`` at site j, so 93% of stored visit mass landed on illegal cells
+    and the policy loss dropped it without a sound, for all of M1.
+    """
+    order = np.argsort(-result.visits)[:width]
+    actions = np.fromiter(
+        (action_index(*result.actions[int(slot)], max_sites) for slot in order),
+        dtype=np.int32,
+        count=len(order),
+    )
+    return actions, result.visits[order].astype(np.int32)
+
+
 def _settle(
     stats: IterationStats,
     ring: ReplayRing | None,
@@ -306,12 +328,14 @@ def _settle(
         except StateTooLarge:
             continue  # counted upstream; never cropped
         seq = np.asarray(encode_state(e.problem.goal, expr, e.problem.target), dtype=np.int16)
-        order = np.argsort(-result.visits)[: ring.visit_actions.shape[1]]
+        visit_actions, visit_counts = ring_visits(
+            result, ring.visit_actions.shape[1], cfg.model.max_sites
+        )
         ring.append(
             tokens=seq,
             site_positions=np.asarray(encoded.site_positions[: encoded.n_sites], dtype=np.int16),
-            visit_actions=order.astype(np.int32),
-            visit_counts=result.visits[order].astype(np.int32),
+            visit_actions=visit_actions,
+            visit_counts=visit_counts,
             root_q=result.root_value,
             z=z,
             par_source=source,
