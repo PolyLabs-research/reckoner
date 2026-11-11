@@ -3877,3 +3877,97 @@ same host, same torch):
 
 **Still open, and unchanged by any of this:** no PREREG registers the pinned
 pair yet, and the "not done here, and registered" list above stands.
+
+---
+
+## F-55 — The seed reached none of the campaign's streams, and the door refused a second seed anyway
+
+**Found:** 2026-11-10, in the TinyAlphaZero-v2 comparison; re-verified on the
+merged tree and fixed 2026-11-11.
+
+**Ruled by the principal, verbatim,** on the offered option *"Offset from the
+registered seed … so seed 42 reproduces M1 and the replay gate exactly and any
+other seed is a true replicate. Replicate seeds need a registered allowance at
+the door"*: *"1 go"*.
+
+### The defect
+
+`config.py` carries the inherited law beside the field: "One seed in config fans
+out to all RNGs". The campaign did not keep it.
+
+| stream | seeded from | reads `cfg.seed`? |
+|---|---|---|
+| problem sampling (`campaign_problems`) | iteration index `n` | no |
+| pool draws | `n * 7919 + 13` | no |
+| per-episode and per-step RNGs (`run_iteration`) | `n * 100_003 + …` | no |
+| training sampler and `torch.manual_seed` (`train_on_ring`) | `n` | no |
+| BFS par labeller, scripted solver (equivalence checker) | `cfg.seed` | yes |
+| `RunState.seed` | `cfg.seed` | recorded only |
+
+So two campaigns under different seeds would have drawn the same problems, the
+same search noise and the same batches. And the second could not have started:
+`seed` is in the fingerprint, so the door refused any seed but 42. A seed
+replicate was impossible twice over, and nothing said so.
+
+### The fix
+
+- **`config.stream_seed(cfg, n)`** is the one number every stream of iteration
+  `n` is drawn from. At the registered seed (42) it returns `n` exactly, so the
+  registered run is what it was. Any other seed moves all streams by a whole
+  stride (`n + ((seed − 42) mod 2^20) · 1,000,003`).
+- **Measurement seeds do not pass through it.** The ring holdout and the
+  ladder's frozen sets stay fixed, so a replicate is graded on the same
+  instrument.
+- **The door checks the seed and the rest separately.** `REGISTERED_SEEDS`
+  holds the admitted seeds; every other field is compared to the pin with the
+  seed set back to 42. A replicate's rows carry its own fingerprint.
+- **`REGISTERED_SEEDS` is `{42}`.** No replicate is admitted until a PREREG
+  adds its seed by number.
+- **A run resumes only under the seed it started with**
+  (`assert_resumed_seed`), since its streams are numbered from it.
+- `validate()` refuses a seed outside `[0, 2^20)`.
+- No config key was added. The pinned pair is unchanged: `1a2f3aad…` /
+  `15f63cc2…`.
+
+### Measured
+
+| reading | result |
+|---|---|
+| `stream_seed(Config(), n) == n`, n in 0..4999 | all |
+| one real self-play iteration (uniform stub, 6 problems), seed 42 twice | same ring digest |
+| the same iteration at seed 43 | **different** ring digest |
+| 7 seeds × 200 iterations | 1,400 distinct stream seeds, none negative, derived seeds inside int64 |
+| door: seed 43 unregistered / registered / registered with `lr` doubled | refused by name / admitted / refused on the pin |
+| eval pin for a registered replicate | still enforced |
+| `make lint`, `make test`, data present | green; **1015 passed**, 0 failed, 0 skipped |
+
+The kill-and-resume tests and the golden run are in that suite and run through
+the changed loop at seed 42. They pass unchanged.
+
+**A defect of the first draft, caught by its own test.** `assert_eval_profile`
+decided "is this the campaign config" by comparing the raw fingerprint to the
+pin. A registered replicate would have read as "not the campaign" and skipped
+the eval pin, for exactly the runs that most need it. It now asks
+`is_campaign_config`, which is seed-blind.
+
+### Ring-0, regenerated (F-53's standing action)
+
+`scripts/ring0_replay.py` at `f70d745`, clean tree, torch 2.13.0+rocm7.2 on CPU.
+
+| | replayed | rehearsal recorded |
+|---|---:|---:|
+| solved / episodes | 398 / 400 | 398 / 400 |
+| pool-par | 99 | 99 |
+| ring rows | 1,305 | 1,305 |
+
+Verdict **REPRODUCED**. The ring is `ring_format` 3, so it holds action-index
+visit targets and π′. F-53, F-54 and the five local commits left the episode
+path where it was. The replay ran before the seed wire; the wire is `n` at
+seed 42 and the replay passes `seed=0` itself, so it is not affected.
+
+### Not done here
+
+- No seed is registered beyond 42. That is the next PREREG's to do.
+- The sweep and F-37's arms have not been re-run on this ring. Their scripts
+  pin a control value (0.8942) that was measured under F-53's defect, so the
+  re-run needs its own registered protocol first.

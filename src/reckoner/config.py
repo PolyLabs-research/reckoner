@@ -409,6 +409,10 @@ class Config:
 
     # [inherited law] One seed in config fans out to all RNGs; library code takes
     # explicit rng/Generator parameters, never global random state.
+    #
+    # Until 2026-11-11 the law was written here and not kept: the campaign seeded
+    # every stream from the iteration index alone, so this field reached only the
+    # par labeller's equivalence checker. `stream_seed` below is the wire.
     seed: int = 42
     episode: EpisodeConfig = field(default_factory=EpisodeConfig)
     par: ParConfig = field(default_factory=ParConfig)
@@ -427,12 +431,44 @@ class Config:
 # ---------------------------------------------------------------------------
 
 
+#: The seed M1 ran under, and the one every recorded stream was drawn at.
+REGISTERED_SEED = 42
+#: Seeds are taken modulo this, so the offset below is never negative
+#: (``random.Random`` discards an integer seed's sign, which would fold two
+#: streams together) and every derived seed stays inside int64 for torch.
+SEED_SPACE = 2**20
+#: Iterations per seed in the stream numbering. Far above any campaign length.
+STREAM_STRIDE = 1_000_003
+
+
+def stream_seed(cfg: Config, n: int) -> int:
+    """The seed for iteration ``n``'s streams: problems, pool draws, episodes,
+    search noise, training batches.
+
+    **At the registered seed this is ``n``, exactly** — the value the loop passed
+    before the wire existed, so M1 and the ring-0 replay reproduce bit for bit
+    and wiring the seed is a defect fix, not a treatment change. Any other seed
+    moves every stream by a whole stride, which is what makes it a replicate.
+
+    Measurement seeds (the ring holdout, the ladder's frozen sets) deliberately
+    do NOT pass through here: a replicate must be graded on the same instrument.
+    """
+    if not 0 <= n < STREAM_STRIDE:
+        raise ValueError(f"iteration {n} is outside the stream numbering [0, {STREAM_STRIDE})")
+    return n + ((cfg.seed - REGISTERED_SEED) % SEED_SPACE) * STREAM_STRIDE
+
+
 def validate(cfg: Config) -> None:
     """Reject configs that violate a pinned decision.
 
     Checked at load, not at first use: an overnight campaign that ran the wrong
     backup rule is not recoverable by noticing it in iteration 3's log.
     """
+    if not 0 <= cfg.seed < SEED_SPACE:
+        raise ValueError(
+            f"seed must be in [0, {SEED_SPACE}); got {cfg.seed}. Seeds are taken "
+            "modulo that range, so one outside it would silently equal another."
+        )
     if cfg.search.perspective != "single":
         raise ValueError(
             f"search.perspective must be 'single'; got {cfg.search.perspective!r}. "
