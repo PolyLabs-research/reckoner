@@ -802,3 +802,8 @@ artifact, the artifact goes in this block.*
   F-51), then `train.policy_target` (F-54). M1's pair survives as
   `M1_ERA_FINGERPRINTS` in `campaign.py`, for the scripts that verify M1's own
   rows.
+
+**Correction to the note above (2026-11-11, F-54 review).** "The target entropy
+equals the prior's exactly wherever the search found nothing" should read: equals
+it up to float32 rounding. `kl_improved_prior_*` is the exact test, and it is
+exactly 0 there.
