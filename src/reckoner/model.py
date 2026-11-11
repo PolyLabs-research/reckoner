@@ -246,7 +246,7 @@ def policy_loss(
     action the movegen would refuse, and the symptom is invisible because the
     argmax is legal most of the time anyway.
 
-    **Target mass under masked-off actions is refused, not dropped (F-41).** The
+    **Target mass under masked-off actions is refused, not dropped (F-53).** The
     masked log-probability is ``-inf`` there and ``nan_to_num`` makes the product
     exactly 0, so an illegal target used to contribute nothing and say nothing.
     That is how a writer storing root slots instead of action indices sent 93% of
@@ -262,7 +262,7 @@ def policy_loss(
             f"{int(off_legal.sum())} policy-target entries in {rows} row(s) sit on "
             f"illegal actions (total mass {mass:.4g}). The loss would drop them "
             "silently; a target naming an action the movegen refuses is a writer bug "
-            "(F-41), not data."
+            "(F-53), not data."
         )
     masked = policy_logits.masked_fill(~legal_mask, float("-inf"))
     log_probs = torch.log_softmax(masked, dim=-1)

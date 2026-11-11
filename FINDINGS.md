@@ -2304,11 +2304,11 @@ is the finding. Reporting top-1 as a raw count beside the ratio is what made the
 difference visible, and it was added precisely because an implausible
 intermediate deserves checking rather than believing.
 
-### Erratum (2026-11-10, F-41)
+### Erratum (2026-11-10, F-53)
 
 Both arms of this finding were measured while the ring's policy targets sat in the
 wrong coordinates. At `f = 0.00`, ring rows carried about 7% of a policy gradient,
-and more of that pointed at a wrong legal action than at the right one (F-41).
+and more of that pointed at a wrong legal action than at the right one (F-53).
 "Forgetting is essentially immediate" is therefore **unexplained under a defect**,
 not established. It describes training on value and steps gradients plus an
 `eval_add`-biased policy push, not training on search targets.
@@ -2321,7 +2321,7 @@ The 200/400-step pair is also not matched in learning rate:
 Re-measure under correct targets with an LR-controlled pair before relying on
 either reading.
 
-**Amendment (2026-11-10, F-41 review).** The sentence above saying more of the
+**Amendment (2026-11-10, F-53 review).** The sentence above saying more of the
 surviving mass "pointed at a wrong legal action than at the right one" is
 withdrawn. It was the probe's pooled uniform-stub reading over all ten suites. In
 the stratum that matches ring-0 (BFS par 1–6), correct exceeds wrong-legal: 6.00%
@@ -2484,13 +2484,22 @@ lost — attempt 1's ring, and with it the between-run par-escalation magnitude.
 
 ---
 
-## F-41 — The ring trained the policy in the wrong coordinates, and the loss swallowed the evidence
+## F-53 — The ring trained the policy in the wrong coordinates, and the loss swallowed the evidence
+
+> **Renumbered 2026-11-11, by the principal's ruling: this finding was written
+> and merged (PR #1) as F-41.** It was built in a cloud clone of a `main` that
+> lacked five local commits from 2026-08-22, which had already recorded F-41
+> through F-52. Those keep their numbers; this one follows them. Every
+> reference in the tree was moved with it, including file names
+> (`scripts/f41_ring_target_probe.py` is now `scripts/f53_ring_target_probe.py`).
+> Commit messages and SHAs cited below are unchanged, so a cited commit shows
+> the old number and the old file name. Nothing else in the text was edited.
 
 **Found:** 2026-11-10, by a cross-repository comparison against TinyAlphaZero-v2,
 whose `RootResult.improved_policy()` returns move coordinates and so never had
 this defect. **Commissioned** by the principal's instruction, verbatim: *"yes,
 write the finding and fix the indexing bug"*. **Instrument:**
-`scripts/f41_ring_target_probe.py` at `1fc2473`, clean tree, torch 2.13.0+cpu,
+`scripts/f53_ring_target_probe.py` at `1fc2473`, clean tree, torch 2.13.0+cpu,
 `sims 48`, `gumbel_m 16`.
 
 ### The defect
@@ -2681,7 +2690,7 @@ sides, which is their job:
   `sweep_rehearsal_frac.py` and `sweep_verify.py` load ring-0 directly, which is
   exactly what standing action 1 re-runs. `sweep_verify` would have printed
   identical digests and blamed the steps knob.
-- *Now.* `train_on_ring` raises (`RingError`, F-41) before it draws from any RNG.
+- *Now.* `train_on_ring` raises (`RingError`, F-53) before it draws from any RNG.
   `resume`'s check moved into a read-only `check_resumable`, which reads only the
   meta and the per-record format column. `scripts/campaign.py` calls it before it
   overwrites `campaign_summary.json`. That was the review's ordering finding: the

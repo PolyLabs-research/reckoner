@@ -342,7 +342,7 @@ def test_omitting_absent_entirely_does_not_invent_absences() -> None:
 
 
 # ---------------------------------------------------------------------------
-# What the ring stores for a root's visits — F-41, pinned absolutely
+# What the ring stores for a root's visits — F-53, pinned absolutely
 # ---------------------------------------------------------------------------
 
 
@@ -352,7 +352,7 @@ def test_ring_visits_stores_action_indices_not_root_slots() -> None:
     ``SearchResult.visits`` is indexed by root slot (position in ``actions``); the
     ring stores dense action indices (``rule * max_sites + site``). The writer
     and reader agreed with each other's *types* and disagreed about *coordinates*
-    for all of M1 (F-41). Absolute expected values, computed by hand:
+    for all of M1 (F-53). Absolute expected values, computed by hand:
 
     =====  ==========  ======  ================================
     slot   action      visits  dense index (max_sites = 192)

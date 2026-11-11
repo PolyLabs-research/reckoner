@@ -110,7 +110,7 @@ def test_batch_targets_are_legal_actions() -> None:
     ``policy_loss`` scores only legal actions, so a target on an illegal one was
     silently dropped rather than loudly rejected — the mask hid the defect it was
     meant to expose. This guarded the supervised path only; the ring path had the
-    same hazard unguarded and lost 93% of its visit mass to it (F-41). Since F-41
+    same hazard unguarded and lost 93% of its visit mass to it (F-53). Since F-53
     ``policy_loss`` itself raises on off-legal target mass; this remains as the
     check on the data as built, before any loss sees it.
     """

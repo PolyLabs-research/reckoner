@@ -1,4 +1,4 @@
-"""F-41's instrument: does the ring train the policy toward the actions search chose?
+"""F-53's instrument: does the ring train the policy toward the actions search chose?
 
 Measures the Phase-2 policy target **end to end on the real path** — the batched
 runner writes the ring through ``runner._settle``, ``train.ring_batch`` turns each
@@ -10,7 +10,7 @@ for each episode, the ``SearchResult`` behind every record the original appends 
 captured in the order the original appends it (the same ``encode`` skip the runner
 applies is applied here, and the count is asserted equal). Nothing about what
 ``visit_actions`` *means* is assumed, so the same probe reads the writer before and
-after the F-41 fix. For the k-th stored visit of a record:
+after the F-53 fix. For the k-th stored visit of a record:
 
 * ``trained cell`` = the dense cell ``ring_batch`` writes that visit's mass into;
 * ``true cell``    = ``action_index(*result.actions[slot])`` for the slot the
@@ -31,7 +31,7 @@ network and any budget.
 Coverage is published beside the result (AGENTS §5): the n_legal histogram, and
 records by par stratum and par source.
 
-    python scripts/f41_ring_target_probe.py --per-suite 20 --out /tmp/f41.json
+    python scripts/f53_ring_target_probe.py --per-suite 20 --out /tmp/f53.json
 """
 
 from __future__ import annotations

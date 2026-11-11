@@ -180,8 +180,8 @@ def test_a_current_format_record_reports_no_era_absence() -> None:
     assert not isinstance(ring.get(0)["root_q"], Absent)
 
 
-def test_a_pre_f41_record_cannot_be_read_as_actions() -> None:
-    """Format 1 stored root SLOT positions in ``visit_actions`` (F-41).
+def test_a_pre_f53_record_cannot_be_read_as_actions() -> None:
+    """Format 1 stored root SLOT positions in ``visit_actions`` (F-53).
 
     A redefinition is an era boundary: the old values are not wrong-but-usable,
     they are in different coordinates, and the ring must refuse to hand them out
@@ -192,7 +192,7 @@ def test_a_pre_f41_record_cannot_be_read_as_actions() -> None:
     got = ring.get(0)
     assert isinstance(got["visit_actions"], Absent)
     assert got["visit_actions"].kind == "era"
-    assert "F-41" in got["visit_actions"].reason
+    assert "F-53" in got["visit_actions"].reason
     assert "slot" in got["visit_actions"].reason.lower()
     # Only the redefined field is affected; the rest of a format-1 record stands.
     assert not isinstance(got["visit_counts"], Absent)
@@ -219,7 +219,7 @@ def test_era_absent_counts_the_records_a_field_cannot_be_read_from() -> None:
     assert ring.era_absent("root_q") == 0
 
 
-def test_ring_batch_sits_out_a_pre_f41_record() -> None:
+def test_ring_batch_sits_out_a_pre_f53_record() -> None:
     """A slot-indexed record must not become a policy target, wrong or dropped."""
     from reckoner.episode import encode_state
     from reckoner.generator import emit, label
@@ -401,7 +401,7 @@ def test_a_loaded_ring_stamps_new_records_with_the_writing_code_s_format(tmp_pat
 
     ``load`` used to rebuild the ring at the format in its meta, so every record
     appended after a resume was stamped with the OLD format. Harmless while only
-    format 1 existed; the first bump (F-41) would have made every new, correct
+    format 1 existed; the first bump (F-53) would have made every new, correct
     record read as era-absent. Both halves asserted.
     """
     old = ReplayRing(4, CFG, ring_format=1)

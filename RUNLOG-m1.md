@@ -126,7 +126,7 @@ nothing ever registered it.
 
 ---
 
-## Erratum (2026-11-10, F-41)
+## Erratum (2026-11-10, F-53)
 
 **Every number above stands as a measurement of its checkpoint.** That includes
 P1's 101/600 → 209/600, CI [0.1367, 0.2217], the floors, and top-1 0.9699. The
@@ -137,7 +137,7 @@ stored root slot positions where `ring_batch` read dense action indices.
 - 93.25% of the ring's visit mass was dropped as illegal.
 - Of the remainder, more trained the wrong legal action than the right one.
 - Under a trained network, the target was discarded entirely in 91.5% of states
-  (`FINDINGS.md` F-41).
+  (`FINDINGS.md` F-53).
 
 M1 therefore improved **without the policy target the loop exists to learn
 from**. Its +0.18 is real. Its cause is open: value and steps trunk gradients,
@@ -145,7 +145,7 @@ supervised rehearsal, or the systematic push toward `eval_add` at low sites.
 
 A resume of this run is refused by code from ring_format 2 onward.
 
-**Amendment (2026-11-10, F-41 review).** Two lines of the erratum above are
+**Amendment (2026-11-10, F-53 review).** Two lines of the erratum above are
 corrected.
 
 - "Of the remainder, more trained the wrong legal action than the right one" is

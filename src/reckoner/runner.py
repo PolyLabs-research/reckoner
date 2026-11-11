@@ -279,7 +279,7 @@ def ring_visits(result: SearchResult, width: int, max_sites: int) -> tuple[np.nd
     **dense action indices** (``rule * max_sites + site``), the layout the policy
     head emits and ``train.ring_batch`` expands into.
 
-    Storing the slot was F-41: slot j can only ever reach cell j, which is
+    Storing the slot was F-53: slot j can only ever reach cell j, which is
     ``eval_add`` at site j, so 93% of stored visit mass landed on illegal cells
     and the policy loss dropped it without a sound, for all of M1.
     """

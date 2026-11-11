@@ -390,7 +390,7 @@ def test_truncating_the_logs_is_idempotent() -> None:
 
 
 # ---------------------------------------------------------------------------
-# A ring whose policy targets predate F-41 is not resumed into
+# A ring whose policy targets predate F-53 is not resumed into
 # ---------------------------------------------------------------------------
 
 
@@ -399,8 +399,8 @@ def _commit_one(run: Path, ring: ReplayRing) -> None:
     commit_iteration(run, ring, state, lambda: None)
 
 
-def test_resume_refuses_a_ring_whose_visit_actions_predate_f41(tmp_path: Path) -> None:
-    """Format-1 records hold root SLOT positions, not actions (F-41).
+def test_resume_refuses_a_ring_whose_visit_actions_predate_f53(tmp_path: Path) -> None:
+    """Format-1 records hold root SLOT positions, not actions (F-53).
 
     ``ring_batch`` sits such a record out, which is right for a reader and silent
     for a campaign: a resume across the fix would quietly train its policy on the
@@ -410,7 +410,7 @@ def test_resume_refuses_a_ring_whose_visit_actions_predate_f41(tmp_path: Path) -
     ring = ReplayRing(8, CFG, ring_format=1)
     ring.append(**a_record(par=1))
     _commit_one(tmp_path, ring)
-    with pytest.raises(ResumeError, match="F-41"):
+    with pytest.raises(ResumeError, match="F-53"):
         resume(tmp_path, CFG)
 
 
@@ -454,7 +454,7 @@ def test_the_resumability_check_passes_a_current_or_empty_run(tmp_path: Path) ->
 
 
 def test_the_launcher_refuses_before_it_overwrites_the_summary(tmp_path: Path, monkeypatch) -> None:
-    """The F-41 review's ordering finding. ``scripts/campaign.py`` writes a
+    """The F-53 review's ordering finding. ``scripts/campaign.py`` writes a
     "started" stub over ``campaign_summary.json`` before calling the driver, so a
     refusal raised inside the driver arrived after a completed run's summary was
     already gone. The refusal has to come first."""
@@ -469,6 +469,6 @@ def test_the_launcher_refuses_before_it_overwrites_the_summary(tmp_path: Path, m
 
     launcher = importlib.import_module("campaign")
     monkeypatch.setattr(sys, "argv", ["campaign.py", str(tmp_path)])
-    with pytest.raises(ResumeError, match="F-41"):
+    with pytest.raises(ResumeError, match="F-53"):
         launcher.main()
     assert summary.read_text() == '{"status": "complete"}\n'

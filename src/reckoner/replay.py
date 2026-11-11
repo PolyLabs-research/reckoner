@@ -15,7 +15,7 @@ field                layout                                      bytes
 ``n_sites``          int16                                             2
 ``visit_actions``    16 × int32 — the top-m root actions, as dense     64
                      action indices (``rule * max_sites + site``;
-                     F-41: format 1 stored root slot positions)
+                     F-53: format 1 stored root slot positions)
 ``visit_counts``     16 × int32                                       64
 ``root_q``           float32                                           4
 ``z``                int8                                              1
@@ -49,7 +49,7 @@ Two era systems exist. They are not the same one
   that a column's stored **meaning** changed, in which case that column's
   ``since`` moves to the new format and records written under the old meaning
   read as era-absent rather than being reinterpreted. Format 2 is the first such
-  bump: format-1 ``visit_actions`` hold root slot positions (F-41).
+  bump: format-1 ``visit_actions`` hold root slot positions (F-53).
 * **``logschema.SCHEMA_ERA`` (there)** versions *JSONL row columns*. A bump means
   a column was added to what an iteration reports.
 
@@ -66,7 +66,7 @@ raw zero:
 
 1. **era absence** — the field did not exist when the record was written, or
    existed under a meaning since redefined (``visit_actions`` before format 2,
-   F-41). Computed from ``record.ring_format`` against ``_FIELDS_SINCE[name]``,
+   F-53). Computed from ``record.ring_format`` against ``_FIELDS_SINCE[name]``,
    never stored, because a record written before a field existed could not have
    explained the absence of something nobody had named. (Same resolution as
    ``logschema``'s, for the same reason.)
@@ -95,7 +95,7 @@ from reckoner.dataset import sample_indices
 #: Distinct from :data:`reckoner.logschema.SCHEMA_ERA`, which versions JSONL row
 #: columns — see this module's docstring.
 #:
-#: 2 (F-41): ``visit_actions`` hold dense action indices. Format-1 records hold
+#: 2 (F-53): ``visit_actions`` hold dense action indices. Format-1 records hold
 #: root slot positions there, and the layout is otherwise identical.
 RING_FORMAT = 2
 
@@ -130,7 +130,7 @@ _FIELDS_SINCE: tuple[RingField, ...] = (
     RingField("site_positions"),
     RingField("length"),
     RingField("n_sites"),
-    # Redefined in format 2 (F-41). The runner stored root SLOT positions here
+    # Redefined in format 2 (F-53). The runner stored root SLOT positions here
     # while ring_batch read dense action indices, so a format-1 value is in the
     # wrong coordinates, not merely stale. Its counts are fine; without the
     # action each one belongs to they train nothing, and ring_batch sits the
@@ -140,7 +140,7 @@ _FIELDS_SINCE: tuple[RingField, ...] = (
         since=2,
         since_reason=(
             "visit_actions held root SLOT positions (indices into legal_actions) "
-            "before ring_format 2, not dense action indices — F-41; they cannot be "
+            "before ring_format 2, not dense action indices — F-53; they cannot be "
             "read as actions"
         ),
     ),
@@ -475,7 +475,7 @@ class ReplayRing:
         # writes, because ``ring_format`` is what the next append is stamped
         # with. Rebuilding at the meta's format stamped every post-resume record
         # with the old format — inert while only format 1 existed, and at the
-        # first bump (F-41) it would have made every new, correct record read as
+        # first bump (F-53) it would have made every new, correct record read as
         # era-absent. The layouts of formats 1 and 2 are identical; a future bump
         # that changes the layout fails the reshape below, loudly.
         ring = cls(meta["capacity"], cfg)
@@ -489,9 +489,9 @@ class ReplayRing:
 
 
 #: Why a record whose ``visit_actions`` are era-absent is never trained on or
-#: resumed into. One statement, shared by every door that refuses (F-41).
+#: resumed into. One statement, shared by every door that refuses (F-53).
 STALE_TARGETS = (
-    "their visit_actions predate ring_format 2: they are root slot positions, not actions (F-41)"
+    "their visit_actions predate ring_format 2: they are root slot positions, not actions (F-53)"
 )
 
 

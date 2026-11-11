@@ -1,4 +1,4 @@
-"""F-41: the ring's policy target is the distribution search actually produced.
+"""F-53: the ring's policy target is the distribution search actually produced.
 
 The runner writes the ring and ``train.ring_batch`` reads it into the dense target
 the policy loss consumes. The two ran together in tests (``a_filled_ring`` into
@@ -7,13 +7,13 @@ search that produced it — and they disagreed about what ``visit_actions`` hold
 (indices into ``legal_actions(expr)``) and ``ring_batch`` read them as **dense
 action indices** (``rule * max_sites + site``). Slot j can only ever reach cell j,
 which is ``eval_add`` at site j, so most stored visit mass landed on illegal cells
-and the policy loss dropped it without a sound (`FINDINGS.md` F-41).
+and the policy loss dropped it without a sound (`FINDINGS.md` F-53).
 
 These tests run the pair end to end on the real path: real searches,
 ``run_iteration`` writing through ``runner._settle``, ``ring_batch`` reading.
 Ground truth is each record's own ``SearchResult``, captured at ``_settle`` in the
 order the original appends (the same capture as
-``scripts/f41_ring_target_probe.py``). No gitignored data: the problems come from
+``scripts/f53_ring_target_probe.py``). No gitignored data: the problems come from
 the generator, so this runs in a clean clone.
 """
 
@@ -110,7 +110,7 @@ def test_every_ring_target_is_the_search_distribution_in_action_coordinates(monk
     search's own visit distribution placed on the cells of the actions it
     visited — exactly, cell for cell.
 
-    It must also be able to FAIL for F-41. Under the slot reading, a record trains
+    It must also be able to FAIL for F-53. Under the slot reading, a record trains
     the right cells only if every visited slot j holds action ``(0, j)``. The
     fixture is required to contain records where that is false, and the count is
     published in the assertion so the gate says what it covered.
@@ -137,7 +137,7 @@ def test_every_ring_target_is_the_search_distribution_in_action_coordinates(monk
     # The other polarity: on these records the slot reading trains other cells.
     assert discriminating >= 0.8 * len(ring), (
         f"only {discriminating}/{len(ring)} records separate action indices from slot "
-        "positions; the fixture cannot tell the fix from F-41"
+        "positions; the fixture cannot tell the fix from F-53"
     )
 
 
@@ -153,11 +153,11 @@ def test_every_ring_target_is_entirely_legal(monkeypatch) -> None:
 
 
 def test_the_slot_reading_is_refused_by_the_loss_not_absorbed(monkeypatch) -> None:
-    """The F-41 target, rebuilt deliberately, must now raise rather than train.
+    """The F-53 target, rebuilt deliberately, must now raise rather than train.
 
     Builds what the HEAD writer produced (stored slot j trained as cell j) for the
     same records and feeds it to the policy loss with the true legal mask. Before
-    F-41 the loss zeroed the illegal mass and carried on; now it refuses. This is
+    F-53 the loss zeroed the illegal mass and carried on; now it refuses. This is
     the detector's live trigger, exercised on the defect it exists for.
     """
     from reckoner.model import policy_loss
@@ -178,7 +178,7 @@ def test_the_slot_reading_is_refused_by_the_loss_not_absorbed(monkeypatch) -> No
                 slot_targets[row, int(slot)] = float(result.visits[slot] / total)
 
     logits = torch.zeros_like(batch.policy_target)
-    with pytest.raises(IllegalTargetError, match="F-41"):
+    with pytest.raises(IllegalTargetError, match="F-53"):
         policy_loss(logits, slot_targets, batch.legal_mask)
     policy_loss(logits, batch.policy_target, batch.legal_mask)  # the fixed target passes
 
@@ -195,9 +195,9 @@ def _ring_only_cfg() -> Config:
     return replace(CFG, train=replace(CFG.train, rehearsal_frac=0.0))
 
 
-def test_train_on_ring_refuses_a_ring_holding_pre_f41_records(monkeypatch) -> None:
+def test_train_on_ring_refuses_a_ring_holding_pre_f53_records(monkeypatch) -> None:
     """Every record of a pre-fix ring is era-absent, so every batch was empty and
-    ``train_on_ring`` returned ``steps == 0`` without a sound — the F-41 review's
+    ``train_on_ring`` returned ``steps == 0`` without a sound — the F-53 review's
     finding. The sweep scripts load such a ring directly, outside resume."""
     from reckoner.model import Reckoner
     from reckoner.replay import RingError
@@ -206,7 +206,7 @@ def test_train_on_ring_refuses_a_ring_holding_pre_f41_records(monkeypatch) -> No
     ring, _truth = ring_with_truth(monkeypatch, ring_format=1)
     assert ring.era_absent("visit_actions") == len(ring) > 0
     torch.manual_seed(0)
-    with pytest.raises(RingError, match="F-41"):
+    with pytest.raises(RingError, match="F-53"):
         train_on_ring(Reckoner(_ring_only_cfg()), ring, _ring_only_cfg(), steps=2, seed=0)
 
 

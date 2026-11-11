@@ -159,7 +159,7 @@ def prune_rings(run: Path, *, keep: int = KEEP_RINGS) -> list[int]:
 def check_resumable(run: Path) -> None:
     """Refuse, without writing anything, a run whose committed ring cannot train.
 
-    F-41: records from before ring_format 2 hold root slot positions where their
+    F-53: records from before ring_format 2 hold root slot positions where their
     actions belong. ``ring_batch`` sits them out, which is right for a reader and
     SILENT for a campaign — a resume across the fix would train its policy on the
     new rows alone, at an unchanged config fingerprint, after iterations that

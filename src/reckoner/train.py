@@ -215,7 +215,7 @@ def ring_batch(ring, indices: list[int], cfg: Config) -> Batch | None:
 
     ``visit_actions`` are dense action indices, written by
     ``runner.ring_visits``. Records from ring_format 1 hold root slot positions
-    there (F-41); the ring reports them era-absent and they sit out here rather
+    there (F-53); the ring reports them era-absent and they sit out here rather
     than training the cells their slot numbers happen to name.
     """
     from reckoner.absence import Absent
@@ -302,7 +302,7 @@ def train_on_ring(
     no accuracy, no switch, forever (`FINDINGS.md` F-15). The declaration governs
     what the search *trusts*; this governs what the head is *taught*.
 
-    **A ring holding pre-F-41 records is refused before anything runs.**
+    **A ring holding pre-F-53 records is refused before anything runs.**
     ``ring_batch`` sits such records out, so on an all-old ring every batch is
     empty and this used to return ``steps == 0`` with the skips filed as
     ``encode_skips`` — a sweep arm that trained nothing, reported as a

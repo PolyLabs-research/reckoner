@@ -326,7 +326,7 @@ def test_policy_loss_ignores_masked_off_logits() -> None:
 
 
 def test_policy_loss_refuses_target_mass_on_an_illegal_action() -> None:
-    """F-41: target mass off the legal set is REFUSED, never silently dropped.
+    """F-53: target mass off the legal set is REFUSED, never silently dropped.
 
     The masked log-probability is ``-inf`` there and ``nan_to_num`` turned the
     product into exactly 0, so an illegal target contributed nothing and said
@@ -341,7 +341,7 @@ def test_policy_loss_refuses_target_mass_on_an_illegal_action() -> None:
     targets = mask.float() / 3
     targets[1, 17] = 0.0
     targets[1, 5] = 1 / 3  # cell 5 is not legal in row 1
-    with pytest.raises(IllegalTargetError, match="F-41"):
+    with pytest.raises(IllegalTargetError, match="F-53"):
         policy_loss(logits, targets, mask)
 
 

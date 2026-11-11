@@ -49,7 +49,7 @@ def main() -> int:
     # Refuse BEFORE the first write below. The identity stub overwrites
     # campaign_summary.json, so a refusal that arrived later — inside
     # run_campaign's resume — would leave a completed run's summary replaced by
-    # a "started" stub for a run that never started (F-41 review). Read-only.
+    # a "started" stub for a run that never started (F-53 review). Read-only.
     check_resumable(run_dir)
 
     # THE PILOT LAW, ON THIS SCRIPT'S OWN OUTPUT PATH (D-A1 §3). The loop's
