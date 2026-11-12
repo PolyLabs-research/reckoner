@@ -182,3 +182,110 @@ the pod is deleted.
 committed at `12e45ce` and the pod plan offered with it (CPU `cpu5c`, 32 vCPU,
 ceiling $1.25/h, 3 h hard cap, worst case $3.36). From here the page above is
 frozen; changes are appended below as dated amendments.
+
+---
+
+## Amendment (2026-11-12): attempt 1 aborted, attempt 2 complete — the readings
+
+### Attempt 1, aborted on a slow host
+
+Pod `8uhbld1tnafe7d` (cpu5c, AMD EPYC 9575F), launched as approved. Setup
+passed: data matched ANCHORS, tree clean at `c01f549`, the anchor scored
+1192 / 1229. The host then ran plain Python about 100× slower than the box (a
+5,000,000-step loop: 24.6 s against 0.24 s; the 73 sanity tests: 145 s against
+2.8 s), with no cgroup throttling recorded. At that speed the 26 arms could not
+finish inside the 3 h cap, and an unfinished arm writes nothing, so it was
+terminated after about an hour (≈ $1.13). No arm result came from it.
+
+The principal approved a relaunch with a 4 h cap (worst case $4.48) and a speed
+gate: the same loop is run after boot, and a host more than 2× slower than the
+box is terminated. **Verbatim:** *"relaunch"*.
+
+### Attempt 2
+
+Pod `tt1aff65bef9tu`, same flavour and CPU model. Speed gate 0.24 s before
+setup, 0.23 s after; sanity tests 2.8 s. Code `c01f549`, clean tree, torch
+2.13.0+cpu, 8 threads per arm, 4 arms side by side. Started 09:25 UTC, all 26
+arms done 10:19 UTC, pulled 10:24 UTC; job exit 0, no arm failed.
+
+**Integrity, per arm:** steps taken = steps requested; rehearsal batches = steps
+where `f > 0` and 0 where `f = 0`; encode skips, NaN skips and
+`improved_truncated` all 0; every arm's ring digest is `4ff19a7d…`, the box's
+ring-0; all 26 weight digests distinct. The anchor scored **1192 / 1229** on the
+pod. The record is `runs/sweep_m2.json`.
+
+| # | `f` | steps | warm | seed | kind | `'visits'` hits | `'improved'` hits |
+|---:|---:|---:|---:|---:|---|---:|---:|
+| 0 | 0.00 | 400 | 200 | 0 | candidate | **1000** | **1192** |
+| 1 | 0.10 | 400 | 200 | 0 | candidate | 1186 | 1192 |
+| 2 | 0.15 | 400 | 200 | 0 | candidate | **1192** | 1192 |
+| 3 | 0.25 | 400 | 200 | 0 | candidate | 1192 | 1192 |
+| 4 | 0.35 | 400 | 200 | 0 | candidate | 1192 | 1192 |
+| 5 | 0.50 | 400 | 200 | 0 | candidate | 1192 | 1192 |
+| 6 | 0.65 | 400 | 200 | 0 | candidate | 1192 | 1192 |
+| 7 | 0.75 | 400 | 200 | 0 | candidate | 1192 | 1192 |
+| 8 | 0.00 | 400 | 200 | 1 | variance | 999 | 1192 |
+| 9 | 0.65 | 400 | 200 | 1 | variance | 1192 | 1192 |
+| 10 | 0.65 | 400 | 200 | 2 | variance | 1192 | 1192 |
+| 11 | 0.00 | 200 | 200 | 0 | mechanism | 1128 | 1192 |
+| 12 | 0.00 | 200 | 100 | 0 | mechanism | 1054 | 1192 |
+
+Band: hits ≥ 1190. Weights moved in every arm by 1.0–1.3% of the anchor's norm
+under both targets.
+
+### Selection, by the frozen rule (§2, §5)
+
+- **`'visits'`: 0.15.** Arm 1 (`f = 0.10`) misses by 4 hits. The variance
+  arms at 0.65 read 1192 on all three seeds; no seed was run at 0.15, so per §6
+  the selection is **provisional until 0.15's seeds are run**.
+- **`'improved'`: 0.00.** Every arm, seed and mechanism variant reads the
+  anchor's 1192 exactly.
+
+### The predictions (§7)
+
+| # | prediction | result |
+|---|---|---|
+| P1 | `'visits'` control does not read M1's 1099 | **holds**: 1000 (seed 1: 999). It forgets more than M1's control did. |
+| P2 | `'improved'` control forgets less than `'visits'` | **holds**: 1192 against 1000 |
+| P3 | `'improved'` selects `f` ≤ `'visits'` | **holds**: 0.00 ≤ 0.15 |
+
+### What the mechanism arms say (`'visits'`)
+
+| arm | what it is | hits |
+|---|---|---:|
+| 0 | 400 steps, full schedule | 1000 |
+| 12 | 200 steps, full schedule shape (warmup 100) | 1054 |
+| 11 | 200 steps, warmup only (F-37's arm) | 1128 |
+
+The three disagree by far more than the measured seed spread (1 hit at
+`f = 0.00`). Forgetting is **not immediate**: it grows with the steps taken at
+a fixed schedule shape (12 → 0), and with the learning rate applied at a fixed
+step count (11 → 12). §4's three readings named one of these as the outcome;
+the measurement shows both terms acting.
+
+### Why `'improved'` does not forget here, measured on the box
+
+Ring-0 was filled by the anchor itself with the value head silent. Each stored
+target, scored against the anchor's own policy on the same states (all 1,305
+rows):
+
+| target | KL(target ‖ anchor), median | mean | rows with KL > 0.01 | argmax = anchor's |
+|---|---:|---:|---:|---:|
+| π′ (`'improved'`) | 0.000000 | 0.210 | 57 | 1277 / 1305 |
+| visit share (`'visits'`) | 2.31 | 3.96 | 987 | 1168 / 1305 |
+
+So on ring-0, π′ is the anchor's own policy on all but 57 rows: training toward
+it is self-distillation, and the policy head is taught what it already says.
+That is F-54's formula doing what it said (π′ departs from the prior only where
+the search holds a proof), and it is why every `'improved'` arm reads 1192.
+
+**What this licenses, and what it does not.**
+- At iteration 0 under `'improved'`, the warm start does not need rehearsal to
+  survive.
+- It says nothing about later iterations. Once the value head goes live, or
+  the network has moved off the anchor, π′ will depart from the policy that
+  generated the ring, and the forgetting `'visits'` shows can return. This
+  sweep cannot measure that: its ring is fixed at iteration 0 by design.
+- So the band does not discriminate between `f` values under `'improved'` on
+  this ring. Reading 0.00 as "the campaign needs no rehearsal" would be a
+  reading the instrument cannot support.
