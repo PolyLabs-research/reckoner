@@ -156,3 +156,14 @@ copied to the pod byte for byte; its digest is in every row.
 ---
 
 **Three failed attempts at any gate → BLOCKED, never a weakened gate.**
+
+---
+
+## Approval (2026-11-12)
+
+**Approved by the principal**, choosing *"Approve and launch (Recommended)"* on
+the question: approve this page as committed at `2396a60` and launch one CPU
+pod running SWEEP-m2 §6's three follow-up arms and this sweep's 28 arms (cpu5c,
+32 vCPU, $1.12/h with a $1.25/h ceiling, 3 h hard cap, worst case $3.36, speed
+gate at boot). From here the page above is frozen; changes are appended below
+as dated amendments.
