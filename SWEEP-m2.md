@@ -173,3 +173,12 @@ the pod is deleted.
 ---
 
 **Three failed attempts at any gate → BLOCKED, never a weakened gate.**
+
+---
+
+## Approval (2026-11-12)
+
+**Approved by the principal, verbatim:** *"agree, proceed"*, on the page as
+committed at `12e45ce` and the pod plan offered with it (CPU `cpu5c`, 32 vCPU,
+ceiling $1.25/h, 3 h hard cap, worst case $3.36). From here the page above is
+frozen; changes are appended below as dated amendments.
