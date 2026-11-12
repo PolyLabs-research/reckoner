@@ -138,10 +138,20 @@ def run_anchor(cfg: Config, ring_path: Path) -> dict:
 
 
 def run_arm(target: str, index: int, cfg: Config, ring_path: Path, arms=ARMS) -> dict:
-    frac, steps, warmup, seed, kind, note = arms[index]
+    """One arm. An arm is ``(f, steps, warmup, seed, kind, note)``, optionally with
+    a seventh element: further ``train`` overrides, recorded in the row (SWEEP-m3's
+    control arm withholds the policy target this way)."""
+    frac, steps, warmup, seed, kind, note, *extra = arms[index]
+    overrides = dict(extra[0]) if extra else {}
     arm_cfg = replace(
         cfg,
-        train=replace(cfg.train, rehearsal_frac=frac, lr_warmup_steps=warmup, policy_target=target),
+        train=replace(
+            cfg.train,
+            rehearsal_frac=frac,
+            lr_warmup_steps=warmup,
+            policy_target=target,
+            **overrides,
+        ),
     )
     validate(arm_cfg)
     ring = ReplayRing.load(ring_path, arm_cfg)
@@ -167,6 +177,7 @@ def run_arm(target: str, index: int, cfg: Config, ring_path: Path, arms=ARMS) ->
         "seed": seed,
         "kind": kind,
         "note": note,
+        "train_overrides": overrides,
         **scored,
         "holds_band": scored["hits"] >= BAND_HITS,
         "ring_rows": len(ring),

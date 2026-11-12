@@ -15,6 +15,15 @@ Three jobs in one:
    only be bounded. Replaying the draw sequence counts it.
 3. **ring-0 for the sweep**, so every arm trains on one fixed ring and `f` is the
    only thing that varies.
+
+``--value-scale`` (added 2026-11-12, for SWEEP-m3) replays the same iteration
+with the anchor's value head trusted by the search at that contribution instead
+of 0.0. The problems and their pars are unchanged: pool par is drawn by the pool
+member's own evaluator, not the self-play one. Only the self-play search
+differs, so the ring it writes is ring-0's episodes searched with a live value
+head. The halt gate's expectations describe the 0.0 replay only, so at any other
+scale the counts are reported, not gated, and ``--out`` must name a new
+directory: such a ring is never ring-0.
 """
 
 from __future__ import annotations
@@ -42,7 +51,11 @@ EXPECTED = {"solved": 398, "episodes": 400, "from_pool": 99, "ring": 1305}
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=REPO / "runs" / "ring0_replay")
+    parser.add_argument("--value-scale", type=float, default=0.0)
     args = parser.parse_args()
+    replaying = args.value_scale == 0.0
+    if not replaying and args.out.resolve() == (REPO / "runs" / "ring0_replay").resolve():
+        parser.error("a ring searched with a live value head is not ring-0; pass a new --out")
 
     cfg = Config()
     validate(cfg)
@@ -63,7 +76,9 @@ def main() -> int:
     stats_before = dict(pool.stats.as_dict())
 
     ring = ReplayRing(cfg.train.replay_capacity, cfg)
-    stats = run_iteration(problems, model_evaluator(model, cfg, 0.0), cfg, ring, seed=0)
+    stats = run_iteration(
+        problems, model_evaluator(model, cfg, args.value_scale), cfg, ring, seed=0
+    )
     stats.check_descent_identity()
 
     got = {
@@ -72,7 +87,7 @@ def main() -> int:
         "from_pool": from_pool,
         "ring": len(ring),
     }
-    ok = got == EXPECTED
+    ok = got == EXPECTED if replaying else True
 
     # THE DRAW COUNT COMES FROM THE POOL'S COUNTERS, not from a standalone replay
     # of the Bernoulli stream. The first version of this probe did the latter and
@@ -85,10 +100,15 @@ def main() -> int:
     stats_after = pool.stats.as_dict()
     drawn = stats_after["pool_par_solved"] + stats_after["pool_par_unavailable"]
 
-    print("\n  RING-0 REPLAY — the queue's halt gate\n")
-    for key, want in EXPECTED.items():
-        mark = "ok  " if got[key] == want else "FAIL"
-        print(f"    {mark} {key:>10}: {got[key]:>5}  (rehearsal recorded {want})")
+    if replaying:
+        print("\n  RING-0 REPLAY — the queue's halt gate\n")
+        for key, want in EXPECTED.items():
+            mark = "ok  " if got[key] == want else "FAIL"
+            print(f"    {mark} {key:>10}: {got[key]:>5}  (rehearsal recorded {want})")
+    else:
+        print(f"\n  ITERATION 0, VALUE HEAD AT {args.value_scale} — reported, not gated\n")
+        for key, want in EXPECTED.items():
+            print(f"    {key:>10}: {got[key]:>5}  (ring-0: {want})")
 
     print("\n  F-28 — was pool_par_fraction = 0.2475 sampling or structure?\n")
     print(f"    draws taken (solved + unavailable)       : {drawn}")
@@ -103,9 +123,10 @@ def main() -> int:
     (args.out / "replay.json").write_text(
         json.dumps(
             {
-                "expected": EXPECTED,
+                "expected": EXPECTED if replaying else None,
                 "got": got,
-                "reproduced": ok,
+                "reproduced": ok if replaying else None,
+                "value_scale": args.value_scale,
                 "draws_attempted": drawn,
                 "fallbacks": drawn - from_pool,
                 "pool_stats": pool.stats.as_dict(),
@@ -116,7 +137,9 @@ def main() -> int:
         )
         + "\n"
     )
-    print(f"\n  ring-0 saved to {args.out / 'ring-0'}")
+    print(f"\n  ring saved to {args.out / 'ring-0'}")
+    if not replaying:
+        return 0
     if not ok:
         print("\n  HALT — iteration 0 did not reproduce. One of the five fixes reached")
         print("  the episode path, and every downstream job would measure a moved loop.")
