@@ -66,6 +66,18 @@ ARMS = (
     (0.00, 200, 100, 0, "mechanism", "LR-controlled: the control's whole schedule in 200 steps"),
 )
 
+#: SWEEP-m2 §6's follow-up arm set, registered by the page's 2026-11-12 amendment
+#: before it ran: the selected 'visits' value, 0.15, at three seeds. Seed 0 is
+#: arm 2 run again on a new host, so it must reproduce arm 2's weight digest
+#: exactly: that is what makes the two new seeds comparable with the sweep.
+FOLLOWUP_ARMS = (
+    (0.15, 400, 200, 0, "reproduction", "arm 2 again: must reproduce its weight digest"),
+    (0.15, 400, 200, 1, "variance", "selected f, second seed"),
+    (0.15, 400, 200, 2, "variance", "selected f, third seed"),
+)
+FOLLOWUP_TARGET = "visits"
+FOLLOWUP_REPRODUCES = 2
+
 
 def weight_digest(model: torch.nn.Module) -> str:
     digest = hashlib.sha256()
@@ -125,8 +137,8 @@ def run_anchor(cfg: Config, ring_path: Path) -> dict:
     return {"arm": "anchor", **score(model, cfg), **provenance(cfg, ring_path)}
 
 
-def run_arm(target: str, index: int, cfg: Config, ring_path: Path) -> dict:
-    frac, steps, warmup, seed, kind, note = ARMS[index]
+def run_arm(target: str, index: int, cfg: Config, ring_path: Path, arms=ARMS) -> dict:
+    frac, steps, warmup, seed, kind, note = arms[index]
     arm_cfg = replace(
         cfg,
         train=replace(cfg.train, rehearsal_frac=frac, lr_warmup_steps=warmup, policy_target=target),
@@ -227,9 +239,50 @@ def collect(out: Path) -> int:
                 f"\n    smallest f holding the band: {selected:.2f}  (a candidate, not a decision)"
             )
     report["complete"] = complete
+    report["followup"] = collect_followup(out, report)
     (out.parent / "sweep_m2.json").write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
     print(f"\n  written: {out.parent / 'sweep_m2.json'}   complete: {complete}")
     return 0 if complete else 1
+
+
+def collect_followup(out: Path, report: dict) -> dict | None:
+    """§6's verdict on the selected 'visits' value, once its seeds exist."""
+    rows = []
+    for index in range(len(FOLLOWUP_ARMS)):
+        path = out / FOLLOWUP_TARGET / f"followup-{index:02d}.json"
+        if path.exists():
+            rows.append(json.loads(path.read_text()))
+    if not rows:
+        return None
+    original = next(
+        (r for r in report["targets"][FOLLOWUP_TARGET]["arms"] if r["arm"] == FOLLOWUP_REPRODUCES),
+        None,
+    )
+    repro = next((r for r in rows if r["kind"] == "reproduction"), None)
+    reproduced = (
+        repro is not None
+        and original is not None
+        and repro["weight_digest"] == original["weight_digest"]
+        and repro["hits"] == original["hits"]
+    )
+    complete = len(rows) == len(FOLLOWUP_ARMS)
+    holds = complete and reproduced and all(r["holds_band"] for r in rows)
+    print(f"\n  SWEEP-m2 §6 follow-up — '{FOLLOWUP_TARGET}' at f = 0.15   ({len(rows)}/3 arms)\n")
+    for r in rows:
+        print(
+            f"    seed {r['seed']}  {r['hits']:>5}/{r['n']:<4}  "
+            f"{'YES' if r['holds_band'] else 'no':<4} {r['kind']:<12} {r['weight_digest'][:12]}"
+        )
+    if original is not None:
+        print(f"    arm {FOLLOWUP_REPRODUCES} (the sweep's own)   {original['weight_digest'][:12]}")
+    print(f"    reproduced: {reproduced}   all seeds hold: {holds}")
+    return {
+        "arms": rows,
+        "reproduces_arm": FOLLOWUP_REPRODUCES,
+        "reproduced": reproduced,
+        "complete": complete,
+        "selection_established": holds,
+    }
 
 
 def main() -> int:
@@ -238,6 +291,7 @@ def main() -> int:
     parser.add_argument("--arm", help="an index from --list, or 'anchor'")
     parser.add_argument("--ring", type=Path, default=REPO / "runs" / "ring0_replay" / "ring-0")
     parser.add_argument("--out-dir", type=Path, default=OUT)
+    parser.add_argument("--followup", type=int, help="an index into FOLLOWUP_ARMS (§6)")
     parser.add_argument("--list", action="store_true")
     parser.add_argument("--collect", action="store_true")
     args = parser.parse_args()
@@ -255,6 +309,10 @@ def main() -> int:
     if args.arm == "anchor":
         path = args.out_dir / "anchor.json"
         row = run_anchor(cfg, args.ring)
+    elif args.followup is not None:
+        path = args.out_dir / FOLLOWUP_TARGET / f"followup-{args.followup:02d}.json"
+        row = run_arm(FOLLOWUP_TARGET, args.followup, cfg, args.ring, arms=FOLLOWUP_ARMS)
+        row["arm"] = f"followup-{args.followup}"
     else:
         if args.target is None or args.arm is None:
             parser.error("--target and --arm are both required to run an arm")

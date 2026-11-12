@@ -289,3 +289,37 @@ the search holds a proof), and it is why every `'improved'` arm reads 1192.
 - So the band does not discriminate between `f` values under `'improved'` on
   this ring. Reading 0.00 as "the campaign needs no rehearsal" would be a
   reading the instrument cannot support.
+
+---
+
+## Amendment (2026-11-12, later): §6's follow-up arms, registered before they run
+
+**Commissioned** by the principal, verbatim: *"Start the next steps"*, on the
+proposal *"Seeds at `f = 0.15` under `visits` … required by the sweep page
+before 0.15 stops being provisional"*.
+
+The selected `'visits'` value is 0.15 (arm 2, seed 0: 1192). §6 requires its
+seeds before the selection stops being provisional. Three arms, run by
+`scripts/sweep_m2.py --followup N` (`FOLLOWUP_ARMS`):
+
+| # | `f` | steps | warmup | seed | kind |
+|---:|---:|---:|---:|---:|---|
+| F0 | 0.15 | 400 | 200 | 0 | reproduction |
+| F1 | 0.15 | 400 | 200 | 1 | variance |
+| F2 | 0.15 | 400 | 200 | 2 | variance |
+
+**F0 is arm 2 run again, and it is the control for the new host.** §9 says one
+host runs every arm. These run on a new pod, so F0 must reproduce arm 2's
+weight digest (`3cde24326a…`) and its hits exactly. Same CPU model, same image,
+same torch build and threads, fixed seeds: a match is expected.
+
+**Both branches, now:**
+- **F0 reproduces, and F0, F1 and F2 all hold the band** → 0.15 is
+  established under `'visits'`.
+- **F0 reproduces, and a seed misses** → 0.15 is not established. The next
+  candidate up (0.25) needs the same three-seed set before anything is
+  selected, registered by a further amendment.
+- **F0 does not reproduce** → the host is not comparable. All three readings
+  are reported and none is used for §6. The mismatch is the finding.
+
+The verdict is computed by `collect_followup` in `scripts/sweep_m2.py`.
