@@ -36,7 +36,7 @@ from pathlib import Path
 
 import torch
 
-from reckoner.config import Config, config_fingerprint, validate
+from reckoner.config import REGISTERED_SEED, Config, config_fingerprint, stream_seed, validate
 from reckoner.dataset import (
     anchored_data,
     git_sha,
@@ -244,16 +244,63 @@ def eval_profile(cfg: Config) -> Config:
     return replace(cfg, search=replace(cfg.search, root_noise=False))
 
 
+#: The seeds a campaign may run under. A replicate differs from the registered
+#: run in its seed and in nothing else, so the door checks the two separately:
+#: the seed against this set, and every other field against the pin. EMPTY OF
+#: REPLICATES ON PURPOSE — a PREREG that wants seed replicates adds them here,
+#: by number, before launch. Until then the only campaign is the registered one.
+REGISTERED_SEEDS = frozenset({REGISTERED_SEED})
+
+
+def _at_registered_seed(cfg: Config) -> Config:
+    """``cfg`` with only its seed set back, so a pin can be compared seed-blind."""
+    return replace(cfg, seed=REGISTERED_SEED)
+
+
+def is_campaign_config(cfg: Config) -> bool:
+    """Is this the registered campaign config, at a registered seed?"""
+    return (
+        cfg.seed in REGISTERED_SEEDS
+        and config_fingerprint(_at_registered_seed(cfg)) == CAMPAIGN_FINGERPRINT
+    )
+
+
 def assert_campaign_profile(cfg: Config) -> str:
-    """Once, at startup. The frozen page becomes executable authority."""
-    got = config_fingerprint(cfg)
-    if got != CAMPAIGN_FINGERPRINT:
+    """Once, at startup. The frozen page becomes executable authority.
+
+    Returns the fingerprint of the config AS GIVEN, seed included, so a
+    replicate's rows carry its own fingerprint and cannot pass for the
+    registered run's.
+    """
+    if cfg.seed not in REGISTERED_SEEDS:
         raise CampaignRefusal(
-            f"campaign config fingerprint {got} != the registered "
+            f"seed {cfg.seed} is not a registered campaign seed "
+            f"({sorted(REGISTERED_SEEDS)}). A seed replicate is a registered run "
+            "like any other: its PREREG adds the seed to REGISTERED_SEEDS first."
+        )
+    normalised = config_fingerprint(_at_registered_seed(cfg))
+    if normalised != CAMPAIGN_FINGERPRINT:
+        raise CampaignRefusal(
+            f"campaign config fingerprint {normalised} != the registered "
             f"{CAMPAIGN_FINGERPRINT}. This config is not the one the campaign was "
             "registered against, so the run would not be the registered run."
         )
-    return got
+    return config_fingerprint(cfg)
+
+
+def assert_resumed_seed(state: RunState, cfg: Config) -> None:
+    """A run continues under the seed it started with, or not at all.
+
+    Every stream is numbered from the seed (``stream_seed``), so resuming under
+    another would splice two runs' streams at the resume point, at a fingerprint
+    the door accepts whenever both seeds are registered.
+    """
+    if state.seed != cfg.seed:
+        raise CampaignRefusal(
+            f"this run was started under seed {state.seed} and is being resumed "
+            f"under seed {cfg.seed}. Its streams are numbered from the seed, so the "
+            "resumed iterations would belong to a different run."
+        )
 
 
 def assert_eval_profile(cfg: Config) -> str:
@@ -281,7 +328,7 @@ def assert_eval_profile(cfg: Config) -> str:
     the currency-tag defect wearing a keyword.
     """
     ev = eval_profile(cfg)
-    campaign = config_fingerprint(cfg) == CAMPAIGN_FINGERPRINT
+    campaign = is_campaign_config(cfg)
     if ev.search.root_noise:
         raise CampaignRefusal(
             "`eval_profile` returned a config with root noise ON, so an instrument "
@@ -289,7 +336,7 @@ def assert_eval_profile(cfg: Config) -> str:
             "comparable to any baseline, whoever is calling."
         )
     got = config_fingerprint(ev)
-    if campaign and got != EVAL_FINGERPRINT:
+    if campaign and config_fingerprint(_at_registered_seed(ev)) != EVAL_FINGERPRINT:
         raise CampaignRefusal(
             f"eval profile fingerprint {got} != the pinned {EVAL_FINGERPRINT}; "
             f"this pass is not comparable to its baseline. (M1 ran under "
@@ -772,6 +819,8 @@ def run(
     if ring is None:
         ring = ReplayRing(cfg.train.replay_capacity, cfg)
         state = RunState(iteration=0, value_head=ValueHeadState(), seed=cfg.seed)
+    assert state is not None
+    assert_resumed_seed(state, cfg)
     model, _ = load_checkpoint(anchor, cfg)
     model.eval()  # F-22: dropout must not be live inside a search
 
@@ -841,6 +890,10 @@ def run(
 
     for n in range(start, cfg.campaign.iterations):
         began = time.perf_counter()
+        # ONE number for every stream this iteration draws from. It is `n` itself
+        # at the registered seed, so the registered run is bit for bit what it
+        # was; any other seed moves all of them together (`config.stream_seed`).
+        stream = stream_seed(cfg, n)
         digest = sha256_file(evaluator_source)
 
         # --- self-play, MODEL-IN-SEARCH ------------------------------------
@@ -851,10 +904,10 @@ def run(
         # off-by-one nobody could detect from the artifacts.
         composition = pool.composition()
         problems, from_pool = campaign_problems(
-            cfg, pool, model, cfg.campaign.episodes_per_iteration, seed=n
+            cfg, pool, model, cfg.campaign.episodes_per_iteration, seed=stream
         )
         t0 = time.perf_counter()
-        stats = run_iteration(problems, model_evaluator(model, cfg, scale), cfg, ring, seed=n)
+        stats = run_iteration(problems, model_evaluator(model, cfg, scale), cfg, ring, seed=stream)
         seconds_self_play = time.perf_counter() - t0
         stats.check_descent_identity()
 
@@ -865,7 +918,7 @@ def run(
             ring,
             cfg,
             steps=cfg.train.train_steps_per_iter,
-            seed=n,
+            seed=stream,
             value_head=state.value_head,
         )
         seconds_train = time.perf_counter() - t0
