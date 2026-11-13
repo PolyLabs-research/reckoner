@@ -3971,3 +3971,49 @@ seed 42 and the replay passes `seed=0` itself, so it is not affected.
 - The sweep and F-37's arms have not been re-run on this ring. Their scripts
   pin a control value (0.8942) that was measured under F-53's defect, so the
   re-run needs its own registered protocol first.
+
+---
+
+## F-56 — Forgetting is not immediate; F-37's reading was the F-53 defect's
+
+**Measured:** 2026-11-12, `SWEEP-m2.md` (registered and approved before any arm
+ran), `runs/sweep_m2.json`. 26 arms on ring-0 regenerated in format 3, scored
+on gate 10b; the anchor reads 1192 / 1229 on the same host.
+
+**F-37 said** that 200 and 400 steps at `f = 0.00` did identical harm (1099 and
+1099), so forgetting is "essentially immediate", and it foreclosed every design
+that turns rehearsal on after iteration 0. That ring stored its policy targets
+in the wrong coordinates (F-53): about 7% of the visit mass reached a legal
+action.
+
+**On the fixed ring, under the same target (`'visits'`):**
+
+| arm | hits |
+|---|---:|
+| 400 steps, full schedule (two seeds) | 1000, 999 |
+| 200 steps, the same schedule shape (warmup 100) | 1054 |
+| 200 steps, warmup only (F-37's arm) | 1128 |
+
+The arms differ by 54 and 74 hits against a 1-hit seed spread. Forgetting
+grows with steps and with the learning rate applied. **F-37's "immediate" is
+withdrawn**, and so is what it foreclosed: designs that delay or ramp
+rehearsal are open again, as hypotheses to test, not as recommendations.
+
+**Rehearsal still protects the warm start under `'visits'`:** `f = 0.10` reads
+1186 and every `f` ≥ 0.15 reads 1192. The smallest band-holding `f` is 0.15
+(provisional: its seeds are not yet run). M1-A4's 0.65 holds the band on three
+seeds, so it is sufficient, and about four times more supervision than the
+sweep shows is needed at iteration 0.
+
+**Under `'improved'` (the target the next campaign trains) nothing is
+forgotten at iteration 0, in any arm, at any `f`.** On ring-0 π′ equals the
+anchor's own policy on all but 57 of 1,305 rows (median KL 0.000000; argmax
+agreement 1277 / 1305), because the search held a proof almost nowhere and the
+value head was silent. Training toward it is self-distillation. This is F-54's
+formula behaving as derived, and it means this sweep cannot choose
+`rehearsal_frac` for `'improved'` past iteration 0. That needs a ring the
+network no longer agrees with: a later iteration's, or one filled with the
+value head live.
+
+**Next, not done here:** the `f = 0.15` seeds under `'visits'` (SWEEP-m2 §6);
+an `'improved'` reading on a ring the network has moved off.
