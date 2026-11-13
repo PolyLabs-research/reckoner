@@ -195,3 +195,81 @@ above is scored by this attempt.
   bounded by the same deadline the principal approved.
 
 The arms, rule, band and predictions are unchanged.
+
+---
+
+## Amendment (2026-11-13): attempt 2 complete — the readings
+
+**Approved by the principal**, choosing *"Relaunch (Recommended)"* on the same
+round with the process fix recorded above.
+
+Pod `eh8ddgskdknmzl`, launched 10:05 UTC by `cloud/launch_round.sh` running as
+a user service. CPU AMD EPYC 4564P (16 cores; not attempt 1's 9575F); speed
+gate 0.27 s. Code `edb59cd`, clean tree, torch 2.13.0+cpu, 8 threads per arm,
+four at a time. Job exit 0 at 11:57 UTC; pulled 11:59 UTC; the pod then
+deleted itself. About $2.10.
+
+**Integrity:** 28 of 28 arms. Steps taken equal steps requested; rehearsal
+batches equal steps where `f > 0` and 0 where `f = 0`; no encode or NaN skips;
+`improved_truncated` 0 everywhere; every arm on ring-V's digest `2374f85b…`;
+28 distinct weight digests. The anchor read **1192 / 1229** on this host. The
+same pod reproduced a SWEEP-m2 arm's weights bit for bit (SWEEP-m2, amendment
+of this date), so this host is comparable with SWEEP-m2's. The record is
+`runs/sweep_m3.json`.
+
+| `f` | seed 0 | seed 1 | seed 2 | all hold |
+|---:|---:|---:|---:|---|
+| 0.00 | **1211** | **1211** | **1211** | yes |
+| 0.10 | 1212 | 1209 | 1208 | yes |
+| 0.15 | 1210 | 1212 | 1211 | yes |
+| 0.25 | 1191 | 1191 | 1207 | yes |
+| 0.35 | 1193 | 1191 | 1191 | yes |
+| 0.50 | 1192 | 1192 | 1190 | yes |
+| 0.65 | 1192 | 1191 | 1192 | yes |
+| 0.75 | 1193 | 1193 | 1192 | yes |
+
+| other arms | hits |
+|---|---:|
+| mechanism, 200 steps, warmup only | 1211 |
+| mechanism, 200 steps, full schedule shape | 1214 |
+| **control, policy target withheld**, seed 0 / seed 1 | **1088 / 1089** |
+
+### Selection, by the frozen rule (§3)
+
+**0.00.** Every seed holds the band at every `f`. So the smallest `f` at which
+all three seeds hold is the smallest one offered.
+
+### The predictions (§6): three of four failed
+
+| # | prediction | result |
+|---|---|---|
+| P1 | At `f = 0.00` no seed holds the band. | **Failed.** All three read 1211, 19 hits above the anchor. |
+| P2 | The policy-withheld control keeps more hits than the `f = 0.00` candidate. | **Failed, in the opposite direction.** The control reads 1088 / 1089, 123 hits below the candidate and 104 below the anchor. |
+| P3 | The selected `f` is between 0.15 and 0.65. | **Failed.** 0.00. |
+| P4 | If `f = 0.00` forgets, the mechanism arms order as under `'visits'`. | **Not applicable:** `f = 0.00` did not forget. |
+
+### What the arms say
+
+- **Ring-V's value and steps labels damage the policy, through the trunk.**
+  With the policy target withheld, training on ring-V costs 104 hits.
+- **The π′ target prevents that damage and goes beyond it.** The same arm with
+  π′ restored reads 1211. π′ equals the network's own policy on 69% of ring-V's
+  rows (§2), so most of its rows act as rehearsal by themselves, and the rows
+  where it departs gain hits.
+- **Phase-1 rehearsal takes the gain back.** At `f` ≤ 0.15 the arms read 1208
+  to 1212. At `f` ≥ 0.25 eight of nine read 1190 to 1193, back at the anchor's
+  1192. The change between 0.15 and 0.25 is sharp (seed 2 at 0.25 still reads
+  1207). This sweep does not say why, and no reason is offered here.
+- **The gain is not one of extra training.** The 200-step mechanism arms read
+  1211 and 1214, the 400-step arms 1211.
+
+### Limits, restated from §2 and §5
+
+- One iteration, on a stress ring: the anchor's untested value head misled its
+  search, 76% of rows are z = −1, and 287 of 400 episodes solved.
+- Gate 10b scores exact agreement with BFS's single action. Hits above the
+  anchor's mean more agreement with BFS's action; they are not shown to mean
+  better play.
+- Whether the campaign should use `f = 0.00` is decided by the campaign's own
+  cadence (`SWEEP-m1a4.md` §3.1: the band screens, the cadence decides), not by
+  this table.
