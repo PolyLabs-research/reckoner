@@ -323,3 +323,33 @@ same torch build and threads, fixed seeds: a match is expected.
   are reported and none is used for §6. The mismatch is the finding.
 
 The verdict is computed by `collect_followup` in `scripts/sweep_m2.py`.
+
+---
+
+## Amendment (2026-11-13): §6's follow-up arms, read — 0.15 is not established
+
+Run on pod `eh8ddgskdknmzl` (CPU AMD EPYC 4564P; SWEEP-m2's arms ran on an EPYC
+9575F) at `edb59cd`, clean tree, torch 2.13.0+cpu, 8 threads, alongside
+SWEEP-m3. Speed gate 0.27 s. The anchor read 1192 / 1229 on this host. All
+three arms trained on ring-0's digest `4ff19a7d…`, 400 steps, 400 rehearsal
+batches, no skips.
+
+| # | seed | hits | band | weight digest |
+|---:|---:|---:|---|---|
+| F0 | 0 | 1192 | holds | `3cde24326ad2…` |
+| F1 | 1 | 1190 | holds, at the band | `9c269cd96e72…` |
+| F2 | 2 | **1136** | **misses by 54** | `9df6ea2924c9…` |
+
+- **F0 reproduced arm 2 bit for bit:** the same weight digest and the same
+  hits, on a different CPU model. So this host is comparable with the sweep's,
+  and F1 and F2 are readings of the same experiment.
+- **By the registered branch, 0.15 is not established under `'visits'`.** One
+  seed of three misses the band by 54 hits. No `'visits'` value is selected.
+  The next candidate up, 0.25, needs its own three-seed set, registered by a
+  further amendment, before anything is selected.
+- **The spread at 0.15 is wide:** 1136 to 1192. At `f = 0.00` the two seeds
+  read 1000 and 999, and at 0.65 three seeds read 1192, 1192 and 1192. So 0.15
+  sits on the edge where the outcome depends on the batch order.
+
+The record is `runs/sweep_m2.json`, `followup`. The table above it is
+unchanged.
