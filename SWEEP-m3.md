@@ -167,3 +167,31 @@ pod running SWEEP-m2 §6's three follow-up arms and this sweep's 28 arms (cpu5c,
 32 vCPU, $1.12/h with a $1.25/h ceiling, 3 h hard cap, worst case $3.36, speed
 gate at boot). From here the page above is frozen; changes are appended below
 as dated amendments.
+
+---
+
+## Amendment (2026-11-13): attempt 1 ran and its results were lost before they were pulled
+
+Pod `8shb0r5satb6by` passed the speed gate (0.23 s), set up cleanly at
+`d6fc2f7` (73 sanity tests in 2.7 s), and started the round at 20:22:48 UTC.
+Ninety seconds later both anchors had scored and the first four arms were
+running.
+
+**No arm result reached the box.** The local puller that copies results home
+did not start until 23:54:58 UTC, three and a half hours after the round, in a
+separate step that waited that long to run. By then the pod had deleted
+itself: either the job guard's bounded wait for a pull (1,800 s after the job
+ends) or the deadline watchdog at 23:20 UTC. The pod had no volume, so its
+results went with it. The puller ran for two hours and found nothing.
+
+**Not a reading.** No arm of this sweep has a recorded result, so nothing
+above is scored by this attempt.
+
+**What changes for attempt 2, as process, not as protocol:**
+- the puller starts in the same step that starts the job, so the two cannot be
+  separated by a delay on the box;
+- the job guard waits for a pull until the pod's deadline instead of 1,800 s,
+  so a late puller still finds the results. The cost of a pod waiting idle is
+  bounded by the same deadline the principal approved.
+
+The arms, rule, band and predictions are unchanged.
