@@ -4017,3 +4017,48 @@ value head live.
 
 **Next, not done here:** the `f = 0.15` seeds under `'visits'` (SWEEP-m2 §6);
 an `'improved'` reading on a ring the network has moved off.
+
+---
+
+## F-57 — Under 'improved', the policy target is its own rehearsal
+
+**Measured:** 2026-11-13, `SWEEP-m3.md` (registered and approved before any arm
+ran; attempt 2), `runs/sweep_m3.json`. 28 arms under `'improved'` on ring-V,
+iteration 0 replayed with the anchor's value head trusted, where π′ names a
+best action other than the anchor's on 988 of 3,601 rows. Scored on gate 10b;
+the anchor reads 1192 / 1229.
+
+| arm (`f = 0.00`, 400 steps) | hits, by seed |
+|---|---|
+| π′ as the policy target | 1211, 1211, 1211 |
+| policy target withheld (value and steps heads only) | 1088, 1089 |
+
+**What it shows.**
+- **Training the value and steps heads on ring-V damages the policy** by 104
+  hits, through the shared trunk. Ring-V's labels are 76% z = −1, from a search
+  the untested value head misled.
+- **The π′ target prevents that damage, without any Phase-1 rehearsal, and adds
+  19 hits.** On 69% of ring-V's rows π′ is the network's own policy, so those
+  rows hold the policy in place the way Phase-1 rehearsal is meant to.
+- **Phase-1 rehearsal adds nothing on this ring and removes the gain.** Every
+  `f` holds the band. At `f` ≤ 0.15 the arms read 1208 to 1212; at `f` ≥ 0.25
+  they read 1190 to 1193 (one exception, 1207).
+- **Three of the four registered predictions failed**, including both that
+  expected forgetting. They were written from SWEEP-m2's `'visits'` results,
+  where the target departs from the network on most rows and protects nothing.
+
+**With F-56, under `'improved'`, at iteration 0:** no rehearsal is needed to
+hold the warm start, on ring-0 (value head silent) or on ring-V (value head
+trusted and wrong on most episodes). At `f = 0.00` the value head also sees all
+128 rows of each batch, against 45 at the registered 0.65. The value head's
+example count is the constraint M1's switch never got past.
+
+**What it does not show.** Both readings are one iteration from the anchor.
+Gate-10b hits are agreement with BFS's single action, not play. Whether the
+next campaign should register `f = 0.00` is for its own five-iteration
+rehearsal to decide (`SWEEP-m1a4.md` §3.1).
+
+**Also measured in the same round (SWEEP-m2's follow-up):** under `'visits'`,
+`f = 0.15` is not established; its seeds read 1192, 1190 and 1136. A
+`'visits'` run reproduced bit for bit across two CPU models (EPYC 9575F and
+4564P) on the same torch build.
