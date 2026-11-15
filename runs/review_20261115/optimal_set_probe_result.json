@@ -1,0 +1,51 @@
+{
+  "all": {
+    "bfs_consistent": 180,
+    "children_beyond_cap": 146,
+    "legal_actions_mean": 2.81,
+    "policy_top_is_optimal": 178,
+    "states": 180,
+    "states_with_several_optimal_actions": 51,
+    "steps_abs_error_children": 0.397,
+    "steps_abs_error_root": 0.082,
+    "steps_argmin_is_optimal": 179
+  },
+  "by_depth": {
+    "1": {
+      "bfs_consistent": 60,
+      "children_beyond_cap": 50,
+      "legal_actions_mean": 1.87,
+      "policy_top_is_optimal": 60,
+      "states": 60,
+      "states_with_several_optimal_actions": 0,
+      "steps_abs_error_children": 0.98,
+      "steps_abs_error_root": 0.044,
+      "steps_argmin_is_optimal": 60
+    },
+    "2": {
+      "bfs_consistent": 60,
+      "children_beyond_cap": 71,
+      "legal_actions_mean": 2.45,
+      "policy_top_is_optimal": 59,
+      "states": 60,
+      "states_with_several_optimal_actions": 14,
+      "steps_abs_error_children": 0.08,
+      "steps_abs_error_root": 0.086,
+      "steps_argmin_is_optimal": 59
+    },
+    "3": {
+      "bfs_consistent": 60,
+      "children_beyond_cap": 25,
+      "legal_actions_mean": 4.1,
+      "policy_top_is_optimal": 59,
+      "states": 60,
+      "states_with_several_optimal_actions": 37,
+      "steps_abs_error_children": 0.343,
+      "steps_abs_error_root": 0.115,
+      "steps_argmin_is_optimal": 60
+    }
+  },
+  "git_sha": "c9164b96a1c849bea22294b1e94bb1c74f7961cf",
+  "per_suite": 60,
+  "torch": "2.13.0+rocm7.2"
+}
