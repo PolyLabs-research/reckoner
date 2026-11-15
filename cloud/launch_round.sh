@@ -16,6 +16,12 @@
 # project's runpod_pod.py instead (CLOUD, default COMMUNITY; at least VCPU
 # vCPUs, default 8) and installs the `cuda` extra. That is for explorations
 # only (AGENTS §7.1): no GPU is licensed for a registered run.
+#
+# GATE_S is the speed gate: the seconds a 5,000,000-step Python loop may take
+# (this box: 0.24). The default, 0.48, is twice the box and was sized for the
+# $1.12/h CPU pods after one ran 100x slow. A GPU exploration may pass a looser
+# one, because its cost is bounded by the cap at a fifth of that rate: the
+# community RTX 3090 hosts measured 0.50 and 0.55 on 2026-11-15.
 set -uo pipefail
 TAG=${1:?tag}; HOURS=${2:?hours}; RUNNER=${3:?runner}; OUT=${4:?outdir}; PAR=${5:-4}
 DATA=${DATA:?set DATA to the data archive}
@@ -24,7 +30,7 @@ GPU=${GPU:-}
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 RP=("$HOME/Documents/dev/chess/.venv/bin/python" "$HOME/Documents/dev/chess/scripts/runpod_pod.py")
 CPU=("$HOME/Documents/dev/protocell/.venv/bin/python" "$HOME/Documents/dev/protocell/cloud/cpu_pod.py")
-GATE_S=0.48
+GATE_S=${GATE_S:-0.48}
 log() { echo "$(date -Is) $*"; }
 mkdir -p "$OUT"
 cd "$REPO"
