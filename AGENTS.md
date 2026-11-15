@@ -402,6 +402,40 @@ then run CPU-only forever. This has burned real time more than once.
   adding a heavyweight dependency, or touching system config (drivers, kernel
   modules, `/etc`). Everything else: proceed and report.
 
+### 7.1 The exploration lane
+
+*(Ruled by the principal, 2026-11-15. Proposed in `REVIEW-2026-11-15.md` as "An
+exploration lane. I'd allow cheap unregistered runs to find effects, with
+registered runs to confirm them"; ruled, verbatim: "agree on your proposals and
+order".)*
+
+Until this ruling every question cost a registered page and usually a pod run,
+so the project measured carefully and rarely. Two lanes now, and the line
+between them is what keeps the second one honest.
+
+- **What an exploration is.** A run made to find out whether an effect exists
+  and roughly how big it is, before a page is written for it. It needs no
+  registered page and no approval, **provided it costs nothing but this box's
+  time.** Anything that spends money is approved first, as before.
+- **Where it lives.** Scripts are `scripts/explore_*.py` and are committed, so
+  an exploration can be re-run. Outputs go under `runs/explore/`, which git
+  ignores, and are never registered in ANCHORS.
+- **What it is not.** An exploration reading is never evidence.
+  - It does not enter `FINDINGS.md`.
+  - It does not move a default, a fingerprint, a gate, a band or a pin.
+  - A registered page may mention it only in a section headed "Exploration (not
+    evidence)", which names the registered round that will test it.
+- **How it ends.** Either nothing was found, and the session report says so; or
+  a registered round is drafted with the prediction the exploration suggested.
+  **The registered round measures again from scratch.** It never inherits an
+  exploration's numbers, because the exploration chose what to look at after
+  seeing data, which is exactly what registration exists to prevent.
+- **What does not relax.** Frozen instruments stay frozen: an exploration reads
+  suites and paired sets and never writes, retunes or trains on them.
+  `training_problems` refuses an instrument as a training source in both lanes.
+  The machine rules in §3 apply in both lanes too: this box's memory and
+  thermal limits do not know which lane a run is in.
+
 ## 8. Domain defaults
 
 - Single-box, single-GPU. No distributed frameworks, no cloud assumptions.
