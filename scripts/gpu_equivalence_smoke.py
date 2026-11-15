@@ -40,9 +40,9 @@ from reckoner.dataset import (
 )
 from reckoner.episode import Problem, decode_state, encode_state
 from reckoner.expr import Expr
-from reckoner.model import Reckoner, StateTooLarge, encode
+from reckoner.model import Reckoner, StateTooLarge, crop_to_content, encode
 from reckoner.rules import apply, legal_actions
-from reckoner.train import SupervisionSet, _crop_to_content
+from reckoner.train import SupervisionSet
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -139,7 +139,7 @@ def encode_batch(states: list, cfg: Config) -> tuple[torch.Tensor, torch.Tensor,
         masks.append(e.legal_mask)
     stacked = torch.stack(tokens)
     positions = torch.stack(sites)
-    return _crop_to_content(stacked, positions), positions, torch.stack(masks)
+    return crop_to_content(stacked, positions), positions, torch.stack(masks)
 
 
 def forward(model: Reckoner, states: list, cfg: Config, device: str, *, bf16: bool = False):
