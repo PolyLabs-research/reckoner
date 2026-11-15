@@ -69,7 +69,13 @@ from reckoner.dataset import (
 )
 from reckoner.episode import Problem, bfs_par, verify
 from reckoner.evaluate import model_evaluator
-from reckoner.model import Reckoner, encode, load_checkpoint, save_checkpoint
+from reckoner.model import (
+    Reckoner,
+    crop_to_content,
+    encode,
+    load_checkpoint,
+    save_checkpoint,
+)
 from reckoner.replay import ReplayRing
 from reckoner.rules import apply, legal_actions
 from reckoner.runner import run_iteration
@@ -297,23 +303,14 @@ def read_optimal(model, cfg: Config, device: str, optimal_sets: dict | None) -> 
         return None
     out = {}
     for depth, states in optimal_sets.items():
-        encoded = [
-            encode(
-                suite_problem({**s, "par_source": "bfs"}),
-                suite_problem({**s, "par_source": "bfs"}).expr,
-                cfg,
-            )
-            for s in states
-        ]
+        problems = [suite_problem({**state, "par_source": "bfs"}) for state in states]
+        encoded = [encode(problem, problem.expr, cfg) for problem in problems]
+        sites = torch.stack([e.site_positions for e in encoded])
+        tokens = crop_to_content(torch.stack([e.tokens for e in encoded]), sites)
         with torch.no_grad():
-            policy, _, _ = model(
-                torch.stack([e.tokens for e in encoded])[:, :128].to(device),
-                torch.stack([e.site_positions for e in encoded]).to(device),
-            )
-        masked = policy.cpu().masked_fill(
-            ~torch.stack([e.legal_mask for e in encoded]), float("-inf")
-        )
-        top = masked.argmax(dim=1).tolist()
+            policy, _, _ = model(tokens.to(device), sites.to(device))
+        legal = torch.stack([e.legal_mask for e in encoded])
+        top = policy.cpu().masked_fill(~legal, float("-inf")).argmax(dim=1).tolist()
         out[depth] = {
             "n": len(states),
             "optimal": sum(int(t in s["optimal"]) for t, s in zip(top, states, strict=True)),
