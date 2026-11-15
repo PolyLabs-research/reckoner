@@ -29,6 +29,19 @@ functions, so the library is untouched until a registered round asks for them:
        says it is masked that way; ``ring_batch`` passes a mask of all ones.
     D  C + the value head's loss is switched off, so nothing but the policy and
        the (clean) steps target reaches the shared layers.
+    E  D + the search's value comes from the STEPS head: a state reached after g
+       steps, with J predicted steps to go, is worth clip(par - g - J, -1, 0)
+       against exact par. The win/draw/loss head is not read at all. (Step 3 of
+       the review.) Until now the search read 0 for every unproven state, so it
+       could refute a bad move only by exhausting everything below it.
+    F  E + the steps head is trained by one-step lookahead through the exact
+       rules: target(s) = 1 + min over legal actions of J(child), a solved child
+       counting 0, J from the weights the iteration started with; where the
+       episode solved, the observed steps-to-go caps it. No solved episode is
+       needed to give a state a target.
+
+``--sims`` overrides the search budget for self-play and for the search reading,
+so "is it the budget or the value" has its own arm (B at a larger budget).
 
 The loop is the campaign's iteration body without its league and ladder: problems
 from ``train_100k`` at their exact BFS par, self-play into one ring, then
@@ -45,6 +58,7 @@ What is read after every iteration, by problem depth 1-6:
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import multiprocessing
 import random
@@ -67,10 +81,12 @@ from reckoner.dataset import (
     suite_problem,
     training_problems,
 )
-from reckoner.episode import Problem, bfs_par, verify
-from reckoner.evaluate import model_evaluator
+from reckoner.episode import Problem, bfs_par, decode_state, verify
+from reckoner.evaluate import assert_eval_mode, model_evaluator
 from reckoner.model import (
+    N_RULES,
     Reckoner,
+    StateTooLarge,
     crop_to_content,
     encode,
     load_checkpoint,
@@ -83,7 +99,7 @@ from reckoner.train import SupervisionSet, make_batch, train, train_on_ring
 
 REPO = Path(__file__).resolve().parents[1]
 DEPTHS = (1, 2, 3, 4, 5, 6)
-ARMS = ("A", "B", "C", "D")
+ARMS = ("A", "B", "C", "D", "E", "F")
 
 
 # --------------------------------------------------------------------- data
@@ -259,13 +275,149 @@ class SolvedRows:
         train_module.ring_batch = masked
 
 
+class StepsValue:
+    """Arm E: the search's value is read off the steps head, on the z scale.
+
+    The evaluator is handed ``(problem, expr)`` and not how many steps the state
+    is into its episode, which the value needs. The search knows: it is recorded
+    here where the search creates each state (the root in ``_simulate``, every
+    other in ``_leaf_outcome``) and looked up when that same state comes back to
+    be evaluated, which is always before its search moves on.
+    """
+
+    def __init__(self) -> None:
+        self.steps_at: dict[int, int] = {}
+
+    def install(self) -> None:
+        table = self.steps_at
+        simulate = search_module._simulate
+        leaf_outcome = search_module._leaf_outcome
+
+        def recording_simulate(problem, expr, cfg, rng, sims, m, steps_taken=0):
+            table[id(expr)] = steps_taken
+            return simulate(problem, expr, cfg, rng, sims, m, steps_taken)
+
+        def recording_leaf(problem, expr, cfg, rng, stats, *, total_steps):
+            outcome = leaf_outcome(problem, expr, cfg, rng, stats, total_steps=total_steps)
+            if outcome is None:
+                table[id(expr)] = total_steps
+            return outcome
+
+        search_module._simulate = recording_simulate
+        search_module._leaf_outcome = recording_leaf
+
+    def evaluator(self, model, cfg: Config, device: str):
+        assert_eval_mode(model, cfg)
+        width = N_RULES * cfg.model.max_sites
+        table = self.steps_at
+
+        def evaluate(leaves):
+            encoded, keep = [], []
+            for i, (problem, expr) in enumerate(leaves):
+                try:
+                    encoded.append(encode(problem, expr, cfg))
+                    keep.append(i)
+                except StateTooLarge:
+                    continue
+            out = [(np.zeros(width, dtype=np.float32), 0.0) for _ in leaves]
+            if not encoded:
+                return out
+            sites = torch.stack([e.site_positions for e in encoded])
+            tokens = crop_to_content(torch.stack([e.tokens for e in encoded]), sites)
+            with torch.no_grad():
+                policy, _, steps = model(tokens.to(device), sites.to(device))
+                policy = policy.cpu().numpy().astype(np.float32)
+                to_go = steps.cpu().tolist()
+            for slot, i in enumerate(keep):
+                problem, expr = leaves[i]
+                remaining = problem.par - table[id(expr)]
+                ceiling = 0.0 if problem.par_source == "bfs" else 1.0
+                out[i] = (policy[slot], float(min(ceiling, max(-1.0, remaining - to_go[slot]))))
+            return out
+
+        return evaluate
+
+
+class BootstrappedSteps:
+    """Arm F: steps targets by one-step lookahead through the exact rules."""
+
+    def __init__(self, cfg: Config, device: str) -> None:
+        self.cfg = cfg
+        self.device = device
+        self.frozen: Reckoner | None = None
+        self.rng = random.Random(0)
+
+    def refresh(self, model: Reckoner) -> None:
+        """Freeze the weights the lookahead reads: the ones this iteration started with."""
+        self.frozen = copy.deepcopy(model).eval()
+
+    def _lookahead(self, ring, indices) -> torch.Tensor:
+        cfg, cap = self.cfg, float(self.cfg.episode.step_cap)
+        owners: list[int] = []
+        encoded = []
+        best = [float("inf")] * len(indices)
+        for row, i in enumerate(indices):
+            record = ring.get(i)
+            goal, target, expr = decode_state(tuple(int(t) for t in record["tokens"]))
+            problem = Problem(
+                goal=goal, expr=expr, par=int(record["par"]), target=target, par_source="bfs"
+            )
+            for rule_id, site_id in legal_actions(expr):
+                child = apply(expr, rule_id, site_id)
+                if verify(problem, child, cfg, self.rng):
+                    best[row] = 1.0
+                    continue
+                try:
+                    encoded.append(encode(problem, child, cfg))
+                    owners.append(row)
+                except StateTooLarge:
+                    continue
+        if encoded:
+            assert self.frozen is not None
+            predicted: list[float] = []
+            with torch.no_grad():
+                for start in range(0, len(encoded), 1024):
+                    chunk = encoded[start : start + 1024]
+                    sites = torch.stack([e.site_positions for e in chunk])
+                    tokens = crop_to_content(torch.stack([e.tokens for e in chunk]), sites)
+                    _, _, steps = self.frozen(tokens.to(self.device), sites.to(self.device))
+                    predicted += steps.cpu().tolist()
+            for row, to_go in zip(owners, predicted, strict=True):
+                # An unsolved child is at least one step from solved, whatever the head says.
+                best[row] = min(best[row], 1.0 + max(1.0, to_go))
+        return torch.tensor([min(b, cap) if b != float("inf") else float("inf") for b in best])
+
+    def install(self) -> None:
+        ring_batch = train_module.ring_batch
+
+        def bootstrapped(ring, indices, cfg, *, target=None):
+            batch = ring_batch(ring, indices, cfg, target=target)
+            if batch is None:
+                return None
+            if batch.skipped:
+                raise RuntimeError("a ring row sat out, so the lookahead cannot be aligned")
+            lookahead = self._lookahead(ring, indices)
+            observed = torch.where(
+                batch.solved_mask,
+                batch.steps_target,
+                torch.full_like(batch.steps_target, float("inf")),
+            )
+            target_steps = torch.minimum(observed, lookahead)
+            known = torch.isfinite(target_steps)
+            batch.steps_target = torch.where(known, target_steps, torch.zeros_like(target_steps))
+            batch.solved_mask = known
+            return batch
+
+        train_module.ring_batch = bootstrapped
+
+
 # ------------------------------------------------------------------ readings
 
 
-def read_play(model, cfg: Config, device: str, per_suite: int, sims: int, m: int) -> dict:
+def read_play(model, cfg: Config, make_evaluator, per_suite: int, sims: int, m: int) -> dict:
     """Episodes on frozen suite problems, measurement profile (no root noise)."""
     ev_cfg = eval_profile(cfg)
-    evaluator = model_evaluator(model, ev_cfg, 0.0, device=device)
+    evaluator = make_evaluator(model, ev_cfg)
     out = {}
     for depth in DEPTHS:
         problems = suite_problems(depth, per_suite)
@@ -318,16 +470,16 @@ def read_optimal(model, cfg: Config, device: str, optimal_sets: dict | None) -> 
     return out
 
 
-def reading(model, cfg, device, args, eval_set, optimal_sets, with_search: bool) -> dict:
+def reading(model, cfg, device, make_evaluator, args, eval_set, optimal_sets, with_search) -> dict:
     model.eval()
     row = {
-        "greedy": read_play(model, cfg, device, args.eval_per_suite, 1, 1),
+        "greedy": read_play(model, cfg, make_evaluator, args.eval_per_suite, 1, 1),
         "label_agreement": read_label_agreement(model, cfg, device, eval_set),
         "optimal_top": read_optimal(model, cfg, device, optimal_sets),
     }
     if with_search:
         row["search"] = read_play(
-            model, cfg, device, args.search_per_suite, cfg.search.sims, cfg.search.gumbel_m
+            model, cfg, make_evaluator, args.search_per_suite, cfg.search.sims, cfg.search.gumbel_m
         )
     return row
 
@@ -343,15 +495,29 @@ def cmd_loop(args: argparse.Namespace) -> int:
         "train_steps_per_iter": args.train_steps,
         "lr_warmup_steps": args.train_steps // 2,
     }
-    if args.arm == "D":
+    if args.arm in ("D", "E", "F"):
         overrides["value_loss_weight"] = 0.0
     cfg = replace(cfg, train=replace(cfg.train, **overrides))
+    if args.sims is not None:
+        cfg = replace(cfg, search=replace(cfg.search, sims=args.sims))
     validate(cfg)
 
-    if args.arm in ("B", "C", "D"):
+    if args.arm != "A":
         install_certain_loss_bound()
-    if args.arm in ("C", "D"):
+    if args.arm in ("C", "D", "E", "F"):
         SolvedRows(args.capacity).install()
+    steps_value = StepsValue() if args.arm in ("E", "F") else None
+    if steps_value is not None:
+        steps_value.install()
+    bootstrap = BootstrappedSteps(cfg, args.device) if args.arm == "F" else None
+    if bootstrap is not None:
+        bootstrap.install()
+
+    def make_evaluator(net, profile):
+        if steps_value is not None:
+            steps_value.steps_at.clear()
+            return steps_value.evaluator(net, profile, args.device)
+        return model_evaluator(net, profile, 0.0, device=args.device)
 
     model, _ = load_checkpoint(args.anchor, cfg)
     model.to(args.device).eval()
@@ -380,7 +546,10 @@ def cmd_loop(args: argparse.Namespace) -> int:
             "arm": args.arm,
             "anchor": str(args.anchor),
             "iteration": n,
-            "reading": reading(model, cfg, args.device, args, eval_set, optimal_sets, with_search),
+            "sims": cfg.search.sims,
+            "reading": reading(
+                model, cfg, args.device, make_evaluator, args, eval_set, optimal_sets, with_search
+            ),
         }
         seconds = {"read": round(time.monotonic() - started, 1)}
         if n == args.iterations:
@@ -389,10 +558,9 @@ def cmd_loop(args: argparse.Namespace) -> int:
             break
 
         t0 = time.monotonic()
-        problems = training_problems(anchored_data("train_100k"), args.episodes, seed=n)
-        stats = run_iteration(
-            problems, model_evaluator(model, cfg, 0.0, device=args.device), cfg, ring, seed=n
-        )
+        stream = n + args.seed_offset * 1000
+        problems = training_problems(anchored_data("train_100k"), args.episodes, seed=stream)
+        stats = run_iteration(problems, make_evaluator(model, cfg), cfg, ring, seed=stream)
         seconds["self_play"] = round(time.monotonic() - t0, 1)
         row["self_play"] = {
             "episodes": stats.episodes,
@@ -405,8 +573,10 @@ def cmd_loop(args: argparse.Namespace) -> int:
         }
 
         t0 = time.monotonic()
+        if bootstrap is not None:
+            bootstrap.refresh(model)
         trained = train_on_ring(
-            model, ring, cfg, steps=cfg.train.train_steps_per_iter, seed=n, device=args.device
+            model, ring, cfg, steps=cfg.train.train_steps_per_iter, seed=stream, device=args.device
         )
         model.eval()
         seconds["train"] = round(time.monotonic() - t0, 1)
@@ -493,6 +663,8 @@ def main() -> int:
     p.add_argument("--eval-per-suite", type=int, default=100)
     p.add_argument("--search-per-suite", type=int, default=40)
     p.add_argument("--search-every", type=int, default=5)
+    p.add_argument("--sims", type=int, default=None, help="override the search budget")
+    p.add_argument("--seed-offset", type=int, default=0, help="shift every stream: a replicate")
     p.add_argument("--capacity", type=int, default=200_000)
     p.add_argument("--optimal-sets", type=Path, default=None)
     p.add_argument("--device", default="cpu")
