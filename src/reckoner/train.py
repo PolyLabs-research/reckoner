@@ -157,8 +157,50 @@ class SupervisionSet:
     def __len__(self) -> int:
         return int(self.meta["n"])
 
+    def up_to_depth(self, max_depth: int) -> DepthLimited:
+        """The rows from problems of depth at most ``max_depth``: a weak start's diet."""
+        return DepthLimited(self, max_depth)
 
-def make_batch(data: SupervisionSet, indices: list[int], cfg: Config) -> Batch:
+
+class DepthLimited:
+    """The rows of a supervision set whose PROBLEM depth is at most ``max_depth``.
+
+    A view :func:`make_batch` and :func:`train` read in place of the full set, for
+    training a starting network that has never seen a deeper problem.
+
+    **The filter is the problem's depth, not the row's distance to the solution.**
+    A depth-6 problem's last three states look like a depth-3 problem. They are
+    left out with the rest of that problem, so no part of a deeper problem's
+    BFS derivation reaches the network. Filtering on ``steps_remaining`` instead
+    would hand it the endgame of every deep problem and call the result weak.
+
+    The rows are copied out of the memmap (about 24 MB at depth <= 3), so the
+    view is cheap to index and the full set is not held open by it.
+    """
+
+    def __init__(self, data: SupervisionSet, max_depth: int) -> None:
+        depths = np.asarray(data.depth)
+        rows = np.flatnonzero(depths <= max_depth)
+        if rows.size == 0:
+            raise ValueError(
+                f"no supervision row comes from a problem of depth <= {max_depth}; "
+                f"the set's depths run {int(depths.min())}..{int(depths.max())}"
+            )
+        self.max_depth = int(max_depth)
+        self.tokens = np.asarray(data.tokens)[rows]
+        self.lengths = np.asarray(data.lengths)[rows]
+        self.action = np.asarray(data.action)[rows]
+        self.steps_remaining = np.asarray(data.steps_remaining)[rows]
+        self.depth = depths[rows]
+        self.goal = np.asarray(data.goal)[rows]
+        self.meta = data.meta
+        self.path = data.path
+
+    def __len__(self) -> int:
+        return int(self.lengths.shape[0])
+
+
+def make_batch(data: SupervisionSet | DepthLimited, indices: list[int], cfg: Config) -> Batch:
     """Encode a batch. Site positions and legality are derived, never stored.
 
     Storing them would cost ~660 MB for a 313K set at `max_sites=192`; deriving
@@ -553,7 +595,7 @@ def lr_at(step: int, total: int, cfg: Config) -> float:
 
 def train(
     model: Reckoner,
-    data: SupervisionSet,
+    data: SupervisionSet | DepthLimited,
     cfg: Config,
     *,
     steps: int,

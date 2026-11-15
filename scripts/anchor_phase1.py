@@ -59,8 +59,10 @@ def main() -> int:
         )
 
     digest = sha256_file(checkpoint)
+    relative = str(checkpoint.resolve().relative_to(REPO))
+    is_phase1 = relative == "runs/phase1/phase1.pt"
     anchor = {
-        "name": "phase1",
+        "name": args.run.name,
         "checkpoint_sha256": digest,
         "step": meta["step"],
         "config_fingerprint": meta["config_fingerprint"],
@@ -72,22 +74,33 @@ def main() -> int:
             "dataset": "phase1_train",
             "digests": provenance["data_digests"],
             "verified_against_disk": True,
+            # None is the Phase-1 anchor's recipe: every row. A number is a weak
+            # start, supervised on problems of at most that depth (WEAK-w1.md).
+            "max_depth": provenance.get("max_depth"),
         },
+        # The gate records are the Phase-1 anchor's own evidence. Another run has
+        # none of them, and claiming them for it would be provenance by silence.
         "evidence": {
             name: sha256_file(REPO / "runs" / name)
             for name in GATE_RECORDS
-            if (REPO / "runs" / name).exists()
+            if is_phase1 and (REPO / "runs" / name).exists()
         },
-        "evidence_missing": [name for name in GATE_RECORDS if not (REPO / "runs" / name).exists()],
+        "evidence_missing": [
+            name for name in GATE_RECORDS if is_phase1 and not (REPO / "runs" / name).exists()
+        ],
     }
+    if not is_phase1:
+        anchor["evidence_absent"] = "the gate records belong to runs/phase1; this run has none"
     write_record(args.run / "anchor.json", anchor)
 
     anchors = REPO / "runs" / "ANCHORS.sha256"
-    line = f"{digest}  runs/phase1/phase1.pt\n"
+    line = f"{digest}  {relative}\n"
     existing = anchors.read_text() if anchors.exists() else ""
     if line not in existing:
         kept = [
-            row for row in existing.splitlines(keepends=True) if "runs/phase1/phase1.pt" not in row
+            row
+            for row in existing.splitlines(keepends=True)
+            if row.split(maxsplit=1)[-1].strip() != relative
         ]
         anchors.write_text("".join(sorted(kept + [line])))
 
