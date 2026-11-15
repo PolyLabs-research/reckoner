@@ -40,6 +40,11 @@ functions, so the library is untouched until a registered round asks for them:
        episode solved, the observed steps-to-go caps it. No solved episode is
        needed to give a state a target.
 
+    V  B + the search's value from the steps head, and nothing else: the training
+       step is the merged one (steps trained on every row, value loss on). E is
+       B + C + D + this, so V against E says whether C and D matter once the
+       search has a value.
+
 ``--sims`` overrides the search budget for self-play and for the search reading,
 so "is it the budget or the value" has its own arm (B at a larger budget).
 
@@ -99,7 +104,7 @@ from reckoner.train import SupervisionSet, make_batch, train, train_on_ring
 
 REPO = Path(__file__).resolve().parents[1]
 DEPTHS = (1, 2, 3, 4, 5, 6)
-ARMS = ("A", "B", "C", "D", "E", "F")
+ARMS = ("A", "B", "C", "D", "E", "F", "V")
 
 
 # --------------------------------------------------------------------- data
@@ -506,7 +511,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
         install_certain_loss_bound()
     if args.arm in ("C", "D", "E", "F"):
         SolvedRows(args.capacity).install()
-    steps_value = StepsValue() if args.arm in ("E", "F") else None
+    steps_value = StepsValue() if args.arm in ("E", "F", "V") else None
     if steps_value is not None:
         steps_value.install()
     bootstrap = BootstrappedSteps(cfg, args.device) if args.arm == "F" else None
