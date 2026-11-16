@@ -12,6 +12,11 @@
 # sweep_m3") every 5 minutes until the job is DONE, pulls the rest, and releases
 # the pod.
 #
+# EXCLUDE is a space-separated list of rsync patterns left on the pod by every
+# pull (rings and intermediate checkpoints, for a round that writes gigabytes of
+# them). `*.pt` is always left by the five-minute pulls and fetched at the end
+# unless EXCLUDE names it.
+#
 # With GPU set (e.g. GPU="RTX 4090"), it launches a GPU pod through the chess
 # project's runpod_pod.py instead (CLOUD, default COMMUNITY; at least VCPU
 # vCPUs, default 8) and installs the `cuda` extra. That is for explorations
@@ -26,6 +31,8 @@ set -uo pipefail
 TAG=${1:?tag}; HOURS=${2:?hours}; RUNNER=${3:?runner}; OUT=${4:?outdir}; PAR=${5:-4}
 DATA=${DATA:?set DATA to the data archive}
 PULL=${PULL:-sweep_m2 sweep_m3}
+SKIP=()
+for pattern in ${EXCLUDE:-}; do SKIP+=(--exclude "$pattern"); done
 GPU=${GPU:-}
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 RP=("$HOME/Documents/dev/chess/.venv/bin/python" "$HOME/Documents/dev/chess/scripts/runpod_pod.py")
@@ -75,12 +82,12 @@ log "job started; the pod holds its results up to ${WAIT}s after the job ends, o
 
 while [ "$(date +%s)" -lt "$DEADLINE" ]; do
     for d in $PULL; do
-        timeout 180 "${RP[@]}" pull "$POD" "/root/reckoner/runs/$d/" "$OUT/$d/" --exclude '*.pt' < /dev/null > /dev/null 2>&1
+        timeout 180 "${RP[@]}" pull "$POD" "/root/reckoner/runs/$d/" "$OUT/$d/" --exclude '*.pt' "${SKIP[@]}" < /dev/null > /dev/null 2>&1
     done
     timeout 60 "${RP[@]}" pull "$POD" /root/work/ "$OUT/work/" < /dev/null > /dev/null 2>&1
     log "files=$(for d in $PULL; do find "$OUT/$d" -type f 2> /dev/null; done | wc -l) done=$([ -e "$OUT/work/DONE" ] && echo yes || echo no)"
     if [ -e "$OUT/work/DONE" ]; then
-        timeout 900 "${RP[@]}" pull "$POD" /root/reckoner/runs/ "$OUT/runs/" --exclude ring0_replay --exclude ring_v --exclude data --exclude phase1 < /dev/null > /dev/null 2>&1 \
+        timeout 900 "${RP[@]}" pull "$POD" /root/reckoner/runs/ "$OUT/runs/" --exclude ring0_replay --exclude ring_v --exclude data --exclude phase1 "${SKIP[@]}" < /dev/null > /dev/null 2>&1 \
             && ssh_ 60 touch /root/work/PULLED && log "PULLED; the pod deletes itself" && exit 0
     fi
     sleep 300
