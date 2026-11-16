@@ -310,6 +310,7 @@ def test_the_w1_configs_are_the_brief() -> None:
         "train.replay_capacity": (500_000, 60_000),
         "campaign.iterations": (20, 10),
         "campaign.episodes_per_iteration": (400, 200),
+        "campaign.intra_op_threads": (8, 3),
         "ladder.ladder_every": (5, 99),
     }
     assert config_diff(a, b) == {"search.past_par": ("evaluate", "loss")}

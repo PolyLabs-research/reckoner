@@ -13,5 +13,6 @@ train:
 campaign:
   iterations: 10
   episodes_per_iteration: 200
+  intra_op_threads: 3        # nine runs side by side on a 32-vCPU pod (WEAK-w1, amendment of 2026-11-16)
 ladder:
   ladder_every: 99           # the campaign's cadence instruments are sized for the Phase-1 anchor; this round reads its own

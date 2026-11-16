@@ -231,3 +231,39 @@ rows beside it.
 a path-shaped string absent from this list is flagged by the sweep's lint.
 Prose-only citations are uncatchable by machine — if a sentence rests on an
 artifact, the artifact goes in this block.*
+
+---
+
+## Approval (2026-11-16)
+
+**Approved by the principal**, choosing *"Approve and launch (Recommended)"* on
+the question: approve this page as committed at `dab241e` and launch its CPU
+pod (cpu5c, 32 vCPU, $1.12/h with a $1.25/h ceiling, 6.5 h hard cap, worst case
+$7.28). From here the page above is frozen; changes are appended below as dated
+amendments.
+
+---
+
+## Amendment (2026-11-16, before any arm ran): three threads per run, nine runs side by side
+
+§9 says "8 intra-op threads per run … five runs at a time". Worked through
+before launch, that schedule does not fit the approved cap with margin: a run
+is ten iterations of 200 CPU training steps, measured earlier on this pod type
+at 1.3 to 2.3 s a step on 8 threads, so nine runs in two oversubscribed batches
+could take up to 5.2 hours on top of the starting network's training and the
+readings. A run cut off by the deadline is lost, because the pod has no volume.
+
+**Changed:** every arm's config sets `campaign.intra_op_threads: 3`
+(8 → 3), and all nine runs start together, 27 threads on 32 vCPUs. Each run's
+reading follows it at once instead of waiting for the others.
+
+**Not changed:** the starting network, the two levers, the seeds, the suites,
+the readings, the predictions, the tests of record, and the cap. The thread
+count is shared by all three arms, so no comparison on this page is between
+runs at different thread counts. `test_the_w1_configs_are_the_brief` pins the
+shared settings at eight keys.
+
+**What it could change.** A different thread count can change the order of
+floating-point sums in training, so these runs are not bit-identical to the
+same runs at 8 threads. Nothing here compares against such runs. (On the search
+path the thread count changed no bit: F-58's replay gate, 2 threads against 8.)
