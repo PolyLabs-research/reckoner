@@ -169,9 +169,15 @@ def cmd_train_anchor(args: argparse.Namespace) -> int:
     cfg = Config()
     validate(cfg)
     torch.set_num_threads(args.threads)
-    data = SupervisionSet(anchored_data("phase1_train")).up_to_depth(args.max_depth)
     torch.manual_seed(args.seed)
     model = Reckoner(cfg)
+    if args.steps == 0:
+        # No supervision at all: the network as initialised. The loop's hardest start.
+        model.eval()
+        save_checkpoint(args.out, model, cfg, 0, explore_max_depth=0)
+        print(f"  saved {args.out}: random initialisation, seed {args.seed}, no training")
+        return 0
+    data = SupervisionSet(anchored_data("phase1_train")).up_to_depth(args.max_depth)
     started = time.monotonic()
 
     def on_log(step: int, loss: float, lr: float) -> None:
