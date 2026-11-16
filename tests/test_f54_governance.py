@@ -16,6 +16,7 @@ from reckoner.campaign import (
     CAMPAIGN_FINGERPRINT,
     DEVICE_ERA_FINGERPRINTS,
     EVAL_FINGERPRINT,
+    FINGERPRINT_HISTORY,
     M1_CAMPAIGN_FINGERPRINT,
     M1_ERA_FINGERPRINTS,
     M1_EVAL_FINGERPRINT,
@@ -32,34 +33,59 @@ def test_the_pinned_fingerprints_are_todays_config() -> None:
     assert config_fingerprint(eval_profile(Config())) == EVAL_FINGERPRINT
 
 
-def test_the_f54_move_changed_exactly_one_key() -> None:
-    """Deleting ``train.policy_target`` from today's config recovers the pair the
-    door pinned before F-54, exactly, for both profiles: nothing else moved under
-    the same move. Deleting ``campaign.device`` as well recovers M1's pair, so
-    the two moves since M1 are those two keys and nothing more."""
-    for cfg, now, era in (
+def _delete(tree: dict, dotted: str) -> None:
+    group, key = dotted.split(".")
+    del tree[group][key]
+
+
+def test_every_pin_move_since_m1_was_exactly_one_key() -> None:
+    """Walk the history backwards. Starting from today's config, deleting the keys
+    that were added, newest first, recovers every pair the door ever pinned,
+    exactly and for both profiles, down to M1's. So each move was its key and
+    nothing else, and no value has moved since M1 without a key to show for it.
+
+    F-54's own move is the second link, and WEAK-w1's two levers are the last two.
+    """
+    assert [era["then_added"] for era in FINGERPRINT_HISTORY] == [
+        "campaign.device",
+        "train.policy_target",
+        "search.past_par",
+        "search.value_source",
+    ]
+    for cfg, now, profile in (
         (Config(), CAMPAIGN_FINGERPRINT, "campaign"),
         (eval_profile(Config()), EVAL_FINGERPRINT, "eval"),
     ):
         tree = _dataclass_to_dict(cfg)
         assert fingerprint_of(tree) == now
-        del tree["train"]["policy_target"]
-        assert fingerprint_of(tree) == DEVICE_ERA_FINGERPRINTS[era]
-        del tree["campaign"]["device"]
-        assert fingerprint_of(tree) == M1_ERA_FINGERPRINTS[era]
+        for era in reversed(FINGERPRINT_HISTORY):
+            _delete(tree, era["then_added"])
+            assert fingerprint_of(tree) == era[profile], (
+                f"deleting {era['then_added']} does not recover the {era['era']} {profile} pair"
+            )
+    assert DEVICE_ERA_FINGERPRINTS["campaign"] == FINGERPRINT_HISTORY[1]["campaign"]
+    assert M1_ERA_FINGERPRINTS["eval"] == FINGERPRINT_HISTORY[0]["eval"]
 
 
 def test_the_proof_would_catch_a_second_moved_key() -> None:
-    """The other polarity, and one that can fail: had any second value moved
-    beside the new key, deleting the key alone would NOT recover the earlier
-    pair, and deleting both keys would NOT recover M1's."""
+    """The other polarity, and one that can fail: had any other value moved beside
+    the added keys, no link of the chain would be recovered."""
     cfg = Config()
     moved = replace(cfg, train=replace(cfg.train, lr=cfg.train.lr * 2))
     tree = _dataclass_to_dict(moved)
-    del tree["train"]["policy_target"]
-    assert fingerprint_of(tree) != DEVICE_ERA_FINGERPRINTS["campaign"]
-    del tree["campaign"]["device"]
-    assert fingerprint_of(tree) != M1_ERA_FINGERPRINTS["campaign"]
+    for era in reversed(FINGERPRINT_HISTORY):
+        _delete(tree, era["then_added"])
+        assert fingerprint_of(tree) != era["campaign"]
+
+
+def test_a_new_key_at_its_default_is_inert_until_it_is_set() -> None:
+    """WEAK-w1's levers land at the search M1 ran. Setting either one moves the
+    fingerprint, which is what makes pulling it a registered act."""
+    cfg = Config()
+    assert cfg.search.past_par == "evaluate" and cfg.search.value_source == "wdl"
+    for change in ({"past_par": "loss"}, {"value_source": "steps"}):
+        pulled = replace(cfg, search=replace(cfg.search, **change))
+        assert config_fingerprint(pulled) != CAMPAIGN_FINGERPRINT
 
 
 def test_m1_literals_are_the_recorded_pair() -> None:

@@ -40,6 +40,13 @@ from typing import Any
 
 import yaml
 
+#: What ``search.past_par`` may name (WEAK-w1). Read by ``search._leaf_outcome``.
+PAST_PAR_RULES = ("evaluate", "loss")
+
+#: What ``search.value_source`` may name (WEAK-w1). Read by the evaluator, which
+#: reports steps-to-go under ``'steps'``, and by the search, which converts it.
+VALUE_SOURCES = ("wdl", "steps")
+
 #: The policy targets ``train.policy_target`` may name (F-54). ``ring_batch``
 #: dispatches on exactly these, and a test pins that the two sets are equal.
 POLICY_TARGETS: tuple[str, ...] = ("improved", "visits")
@@ -216,6 +223,39 @@ class SearchConfig:
     # value, so anything that forgets to choose keeps generating diverse data
     # rather than silently freezing it. Suites and the ladder run root_noise off.
     root_noise: bool = True
+
+    # [WEAK-w1 — a registered lever; the default is the search M1 ran] What the
+    # search does with an UNSOLVED state it creates at or past par.
+    #
+    #   evaluate  ask the evaluator, as for any other state. While the value head
+    #             is silent that answer is 0: "level with par", for a state that
+    #             can no longer be level with par.
+    #   loss      score it -1 and stop there. Once the step count has reached par
+    #             with the problem unsolved, the episode's z is -1 whatever
+    #             follows, so this is the par game's own arithmetic, not a
+    #             heuristic.
+    #
+    # Under `evaluate` an over-par SOLUTION (-1, exactly) ranks below an
+    # unexplored line (0), so past par the search prefers anything to solving.
+    # The exploration that surfaced it is recorded in WEAK-w1.md; the default
+    # moves only on that round's reading and the principal's ruling.
+    past_par: str = "evaluate"
+
+    # [WEAK-w1 — a registered lever; the default is the search M1 ran] Where the
+    # search gets the value of a state it has not proven.
+    #
+    #   wdl    the win/draw/loss head, scaled by the value gate's declaration
+    #          (0 until its switch fires; it never fired in M1's 20 iterations).
+    #   steps  the steps head. A state reached after g steps, with J predicted
+    #          steps to go, is worth clip(par - g - J, -1, ceiling): 0 if it can
+    #          still finish at par, falling to -1 as it runs a step over. The
+    #          ceiling is 0 against exact par (nothing beats it) and +1 otherwise.
+    #          The value gate is not consulted: the steps head is trained from
+    #          Phase 1, which is what the gate exists to wait for.
+    #
+    # Under `wdl` with a silent head the search can refute a move only by
+    # exhausting everything beneath it. The exploration is recorded in WEAK-w1.md.
+    value_source: str = "wdl"
 
 
 @dataclass
@@ -514,6 +554,18 @@ def validate(cfg: Config) -> None:
             f"train.lr_schedule must be 'constant' or 'cosine'; got "
             f"{cfg.train.lr_schedule!r}. The plan names those two; a third curve "
             "is a decision, not a typo, and belongs in a round."
+        )
+    if cfg.search.past_par not in PAST_PAR_RULES:
+        raise ValueError(
+            f"search.past_par must be one of {list(PAST_PAR_RULES)}; got "
+            f"{cfg.search.past_par!r}. 'evaluate' is the search M1 ran; 'loss' scores an "
+            "unsolved state at or past par as -1 (WEAK-w1)."
+        )
+    if cfg.search.value_source not in VALUE_SOURCES:
+        raise ValueError(
+            f"search.value_source must be one of {list(VALUE_SOURCES)}; got "
+            f"{cfg.search.value_source!r}. 'wdl' is the search M1 ran; 'steps' reads the "
+            "value off the steps head against par (WEAK-w1)."
         )
     if cfg.train.policy_target not in POLICY_TARGETS:
         raise ValueError(

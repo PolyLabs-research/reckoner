@@ -1,0 +1,19 @@
+# WEAK-w1, arm B — arm A plus one key: an unsolved state at or past par is a loss.
+#
+# Only the keys that differ from configs/default.yaml are written here; the
+# loader fills every other key from the defaults, and
+# tests/test_w1_levers.py::test_the_w1_configs_are_the_brief pins this file's
+# diff against the default to the set WEAK-w1.md registers. Every arm of the
+# round shares these settings; arms B and V add one key each.
+train:
+  rehearsal_frac: 0.0        # no supervised rows: phase1_train holds BFS labels for the deep problems the weak start must not see
+  train_steps_per_iter: 200  # half the campaign's, with its schedule shape (half warmup)
+  lr_warmup_steps: 100
+  replay_capacity: 60000     # the run fills about a tenth of it; the campaign's 500,000 is 1.3 GiB per saved ring
+campaign:
+  iterations: 10
+  episodes_per_iteration: 200
+ladder:
+  ladder_every: 99           # the campaign's cadence instruments are sized for the Phase-1 anchor; this round reads its own
+search:
+  past_par: loss             # THE LEVER of arm B against arm A

@@ -83,6 +83,8 @@ search:
   # one tree; within-tree pooling was removed as unsound (A3, was batch_leaves).
   batch_searches: 512
   root_noise: true  # [plan chunk 7] the SELF-PLAY value; suites/ladder run false
+  past_par: evaluate  # [WEAK-w1 — registered lever] evaluate (the search M1 ran) | loss (an unsolved state at or past par is -1)
+  value_source: wdl   # [WEAK-w1 — registered lever] wdl (the search M1 ran) | steps (value from the steps head against par)
 
 # --- training [plan chunks 8, 9] --------------------------------------------
 train:

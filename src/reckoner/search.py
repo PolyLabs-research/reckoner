@@ -65,7 +65,10 @@ from reckoner.expr import Expr
 from reckoner.model import StateTooLarge, action_index, encode
 from reckoner.rules import apply, legal_actions
 
-Evaluation = tuple[np.ndarray, float]
+#: ``(policy logits, value)``, or under ``search.value_source = 'steps'`` a third
+#: element: the predicted steps-to-go, which the search turns into a value itself
+#: because only the search knows how many steps the state is into its episode.
+Evaluation = tuple[np.ndarray, float] | tuple[np.ndarray, float, float]
 Evaluator = Callable[[Sequence[tuple[Problem, Expr]]], list[Evaluation]]
 
 
@@ -82,6 +85,9 @@ class SearchStats:
     terminal_solved: int = 0
     terminal_no_actions: int = 0
     state_too_large: int = 0
+    #: Unsolved states at or past par that ``search.past_par = 'loss'`` scored -1
+    #: without evaluating (WEAK-w1). Always 0 under ``'evaluate'``.
+    past_par: int = 0
 
     def as_dict(self) -> dict:
         return dict(vars(self))
@@ -411,7 +417,44 @@ def _leaf_outcome(
         # at the cap cannot be continued, so it is terminal and it is -1.
         stats.step_cap_reached += 1
         return -1.0
+    if cfg.search.past_par == "loss" and total_steps >= problem.par:
+        # WEAK-w1. The step count has reached par and the problem is not solved,
+        # so z is -1 whatever follows: over-par solve, cap, or dead end. Scored
+        # as that, and counted, so the descent identity still accounts for every
+        # node the search did not evaluate.
+        stats.past_par += 1
+        return -1.0
     return None
+
+
+def _state_value(answer: Evaluation, problem: Problem, total_steps: int, cfg: Config) -> float:
+    """The value of an unproven state, on the z scale, from an evaluator's answer.
+
+    ``'wdl'`` — the evaluator's own value, unchanged: what the search read before
+    this function existed.
+
+    ``'steps'`` (WEAK-w1) — from the predicted steps-to-go ``J`` and the par game's
+    own arithmetic. The state is ``total_steps`` into its episode, so finishing
+    from here lands on ``total_steps + J`` against ``par``:
+
+    * on or under par by the estimate: worth ``par - total_steps - J``, capped at
+      the ceiling. Against exact (BFS) par the ceiling is 0, because nothing
+      beats it and a head that says otherwise is wrong by construction; against
+      any other par source a finish under par is real and the ceiling is +1.
+    * a step or more over: -1.
+
+    Linear between, so half a predicted step over par is worth -0.5 rather than
+    being rounded into a certainty the head does not have.
+    """
+    if cfg.search.value_source == "wdl":
+        return float(answer[1])
+    if len(answer) < 3:
+        raise ValueError(
+            "search.value_source is 'steps' and this evaluator reports no steps-to-go: "
+            "it returned (policy, value). The value would silently be something else."
+        )
+    ceiling = 0.0 if problem.par_source == "bfs" else 1.0
+    return float(min(ceiling, max(-1.0, problem.par - total_steps - float(answer[2]))))
 
 
 def _priors_for(raw: np.ndarray, actions: list[tuple[int, int]], cfg: Config) -> np.ndarray:
@@ -448,7 +491,8 @@ def _simulate(
             improved=np.zeros(0, np.float32),
         )
 
-    raw, root_value = yield (problem, expr)
+    answer = yield (problem, expr)
+    raw, root_value = answer[0], _state_value(answer, problem, steps_taken, cfg)
     stats.evaluations += 1
     logits = _priors_for(raw, root_actions, cfg).astype(np.float64)
     tree.open(root, root_actions, logits.astype(np.float32))
@@ -496,7 +540,11 @@ def _simulate(
                             tree.value[child] = outcome
                             _backup(tree, child, outcome)
                         else:
-                            child_raw, child_value = yield (problem, successor)
+                            answer = yield (problem, successor)
+                            child_raw = answer[0]
+                            child_value = _state_value(
+                                answer, problem, steps_taken + int(tree.depth[child]), cfg
+                            )
                             stats.evaluations += 1
                             child_actions = legal_actions(successor)
                             tree.open(
