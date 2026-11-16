@@ -416,3 +416,49 @@ round whose starting network has less supervision, or none.
   every reading from iteration 5 on. The policy alone stalled at about half of
   the depth-6 problems from iteration 3 on, in both arms tried. That stall is
   not understood.
+
+---
+
+## Ruling (2026-11-16)
+
+Committed on receipt, before acting on it (AGENTS §7).
+
+**What was put to the principal**, verbatim from the session report on this
+round, under "Decisions for you":
+
+> 1. **PRs.** Say the word and I'll open both, `foundation-round` first.
+> 2. **Defaults.** I recommend making `past_par: loss` and `value_source: steps`
+>    the defaults for future rounds, with the old search still available by key.
+> 3. **Next round.** I'd register a from-scratch round (random and one-step
+>    starts, about the cost of this one) to confirm the exploration and chase
+>    the depth-6 stall. If it holds, Phase-1 supervision is optional, which
+>    opens deeper problems and richer rule sets where no BFS labels exist. The
+>    alternative is to go straight to a benchmark above depth 6.
+
+**The principal, verbatim:**
+
+> open prs
+> agree with your next steps, proceed
+
+Read as covering, and acted on as covering:
+
+- **Item 1.** Both pull requests are open: #6 (`foundation-round`) and #7
+  (`weak-w1`, stacked on it).
+- **Item 2.** `search.past_par: loss` and `search.value_source: steps` become
+  the defaults for rounds registered from here on. The search M1 ran stays
+  available by setting both keys back. This is §7's first and third branches
+  taken to their end. It lands as its own commit on its own branch, after this
+  one, and moves the pinned fingerprints once, for both keys together.
+- **Item 3.** A from-scratch round is to be registered: starting networks with
+  one-step supervision and with none. The alternative named in item 3, going
+  straight to a benchmark above depth 6, is not taken now.
+
+What the ruling does not do:
+
+- It approves no protocol, prediction, band or pod spend. The from-scratch
+  round gets its own page and its own approval before anything runs.
+- It does not re-read any earlier round under the new defaults. F-56 and F-57
+  were measured under the search M1 ran and stay as measured.
+- It does not change the campaign's starting network or its instrument floors.
+  `NO_REGRESS` was derived under the old search. The next campaign's PREREG
+  re-derives it.
