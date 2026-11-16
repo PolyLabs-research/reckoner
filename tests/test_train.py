@@ -17,10 +17,9 @@ import torch
 
 from reckoner.config import Config
 from reckoner.dataset import anchored_data, data_path
-from reckoner.model import Reckoner
+from reckoner.model import Reckoner, crop_to_content
 from reckoner.train import (
     SupervisionSet,
-    _crop_to_content,
     make_batch,
     rehearsal_split,
     train,
@@ -81,7 +80,7 @@ def test_crop_keeps_every_column_that_holds_content() -> None:
     tokens[0, 0] = 5
     tokens[1, CFG.model.seq_len - 1] = 5  # content in the very last column
     sites = torch.zeros((2, CFG.model.max_sites), dtype=torch.long)
-    assert _crop_to_content(tokens, sites).shape[1] == CFG.model.seq_len
+    assert crop_to_content(tokens, sites).shape[1] == CFG.model.seq_len
 
 
 def test_crop_never_cuts_below_a_site_position() -> None:
@@ -95,7 +94,7 @@ def test_crop_never_cuts_below_a_site_position() -> None:
     tokens[0, :4] = 5
     sites = torch.zeros((1, CFG.model.max_sites), dtype=torch.long)
     sites[0, 0] = 300
-    assert _crop_to_content(tokens, sites).shape[1] == 301
+    assert crop_to_content(tokens, sites).shape[1] == 301
 
 
 # ---------------------------------------------------------------------------

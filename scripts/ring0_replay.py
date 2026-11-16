@@ -52,6 +52,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, default=REPO / "runs" / "ring0_replay")
     parser.add_argument("--value-scale", type=float, default=0.0)
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=None,
+        help="intra-op threads; default is the campaign's. For a replay on a busy box.",
+    )
     args = parser.parse_args()
     replaying = args.value_scale == 0.0
     if not replaying and args.out.resolve() == (REPO / "runs" / "ring0_replay").resolve():
@@ -59,7 +65,7 @@ def main() -> int:
 
     cfg = Config()
     validate(cfg)
-    torch.set_num_threads(cfg.campaign.intra_op_threads)
+    torch.set_num_threads(args.threads or cfg.campaign.intra_op_threads)
 
     model, _ = load_checkpoint(ANCHOR, cfg)
     model.eval()
