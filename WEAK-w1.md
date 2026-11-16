@@ -267,3 +267,152 @@ shared settings at eight keys.
 floating-point sums in training, so these runs are not bit-identical to the
 same runs at 8 threads. Nothing here compares against such runs. (On the search
 path the thread count changed no bit: F-58's replay gate, 2 threads against 8.)
+
+---
+
+## Amendment (2026-11-16): the round ran once, complete — the readings
+
+### The run
+
+- **Launch.** Pod `4ikl9zs2ueotar` (cpu5c, 32 vCPU, AMD EPYC 9575F), 09:50 UTC.
+  Speed gate 0.23 s. The launcher's next calls were refused by the RunPod API
+  (HTTP 429: the account's per-minute limit, shared with other pods running on
+  it), so it declared setup failed, and its terminate call was refused too,
+  which left the pod up. The launcher was fixed (`ce6c212`: the pod's address is
+  resolved once, terminate retries, a running pod can be adopted) and **the same
+  pod was adopted four minutes after launch.** No arm had started; nothing was
+  run twice.
+- **Code and stack.** `ce6c212`, clean tree, torch 2.13.0+cpu, data matching
+  ANCHORS.
+- **The starting network.** 3,000 steps on CPU in 36 minutes; digest
+  `a5464d86…`, registered in `runs/ANCHORS.sha256`.
+- **The nine runs.** All ten iterations committed in every run, 80 to 96
+  minutes each, `alarms {}` in all nine. **The value switch fired in none of
+  them**, so arms A and B searched with a silent value head throughout, as the
+  exploration's did.
+- **Readings and record.** Collected on the pod at 12:28 UTC and pulled at
+  12:33; the pod then deleted itself. A local re-run of the collector over the
+  pulled rows reproduces the pod's record exactly. About 2 h 45 min of pod time,
+  roughly $3.10.
+
+### At par, by problem depth (of 200 each; 1,200 in all)
+
+| | no search: depths 1–6 | total | with search: depths 1–6 | total |
+|---|---|---:|---|---:|
+| Phase-1 reference | 200 196 196 190 194 200 | 1176 | 200 200 200 199 194 200 | 1193 |
+| starting network, A's search | 200 196 200 109 6 11 | 722 | 200 200 200 199 22 20 | 841 |
+| starting network, B's search | (the same network) | 722 | 200 200 200 200 22 20 | 842 |
+| starting network, V's search | (the same network) | 722 | 200 200 200 200 117 21 | 938 |
+| **A** seed 42 | 178 186 155 170 30 10 | 729 | 178 190 155 170 30 16 | 739 |
+| **A** seed 43 | 190 185 168 172 13 2 | 730 | 190 189 168 172 17 10 | 746 |
+| **A** seed 44 | 196 194 179 189 33 4 | 795 | 196 198 179 189 36 11 | 809 |
+| **B** seed 42 | 200 196 200 199 33 19 | 847 | 200 200 200 200 36 20 | 856 |
+| **B** seed 43 | 200 196 199 199 34 24 | 852 | 200 200 199 200 35 25 | 859 |
+| **B** seed 44 | 200 196 200 199 42 16 | 853 | 200 200 200 200 46 26 | 872 |
+| **V** seed 42 | 200 196 200 199 194 186 | **1175** | 200 200 200 200 200 200 | **1200** |
+| **V** seed 43 | 200 196 200 199 175 173 | **1143** | 200 200 200 200 200 200 | **1200** |
+| **V** seed 44 | 200 196 200 199 189 172 | **1156** | 200 200 200 200 200 200 | **1200** |
+
+The reference row is the instrument checking itself: 1,176 and 1,193 are the
+Phase-1 anchor's recorded readings (RUNLOG-m1, F-20), reproduced here on
+another host.
+
+### The predictions (§6): all seven hold
+
+| # | prediction | measured | |
+|---|---|---|---|
+| P1 | starting network at par, no search, depths 4–6: ≤ 200 of 600; reference ≥ 560 | 126; 584 | holds |
+| P2 | arm A ends ≥ 20 of 600 below the starting network on depths 1–3, mean over seeds | 77, 53, 27 below (mean 52) | holds |
+| P3 | arm B ≤ 6 of 600 below, every seed | 0, 1, 0 below | holds |
+| P4 | B − A over all 1,200, paired: excludes zero, above | +0.083, CI [+0.072, +0.094] | holds |
+| P5 | arm V at par, no search, depths 5–6: ≥ 300 of 400 every seed; V − B there excludes zero | 380, 348, 361; +0.768, CI [+0.738, +0.796] | holds |
+| P6 | arm V with search, depths 4–6: ≥ 570 of 600 every seed | 600, 600, 600 | holds |
+| P7 | arm V within 60 of 1,200 of the reference, no search, every seed | 1, 33, 20 short | holds |
+
+The third test of record, V − B over all 1,200: +0.256, CI [+0.234, +0.279].
+Every interval is a paired bootstrap over problems (10,000 resamples) of the
+at-par indicator averaged over the three seeds; none is saturated.
+
+### What the readings say
+
+- **The benchmark has the headroom it was built for.** The starting network
+  plays 126 of 600 deep problems at par; supervision on every depth gives 584.
+- **The merged loop damages what the network knew, and its search cannot repair
+  it.** Arm A loses 27 to 77 problems on depths 1–3, and its with-search column
+  equals its no-search column there (178 and 178 at depth 1 in seed 42). A
+  depth-1 problem is one move from solved. The merged search still cannot
+  prefer the solving move to an unexplored one, because both read 0.
+- **Scoring past-par states as losses removes the damage.** Arm B is within one
+  problem of the starting network on depths 1–3 in every seed, and its self-play
+  caps fall to 1–5 per iteration where arm A's rise to 16–23.
+- **Reading the value off the steps head lets the loop reach the deep
+  problems.** Without search arm V plays 348 to 380 of 400 depth-5 and depth-6
+  problems at par, where arm B plays 52 to 58. With search it is at par on
+  every one of the 1,200, in every seed. The supervised reference misses 7.
+- **The steps head was worth reading before any loop ran.** The starting
+  network under V's search is at par on 117 depth-5 problems against 22 under
+  the others.
+
+### Branches taken (§7)
+
+- **P3 and P4 hold.** The past-par rule is a defect fix with a measured effect.
+  Making `search.past_par: loss` the default is proposed to the principal for
+  the next campaign.
+- **P5 and P6 hold.** The steps-head value is the lever that lets the loop
+  extend a weak start. The next campaign's PREREG is to be drafted on it, and
+  the later rounds of the review are to be measured on this benchmark.
+
+**No default has changed.** Both keys still default to the search M1 ran.
+
+### Limits
+
+- One benchmark: a depth ≤ 3 start, problems of depth ≤ 6, rule set v1, ten
+  iterations of 200 episodes. What these levers do from the Phase-1 anchor is
+  not measured here, and cannot be on these suites, which that anchor already
+  saturates.
+- Par is given to the search, as it always has been. Arm V uses it once more,
+  to turn predicted steps into a value. On problems whose par is a loose
+  estimate this arithmetic has a +1 ceiling that this round exercised only
+  through the league's fifth of episodes.
+- The steps head is trained on every ring row here, including unsolved
+  episodes (the review's point 3). Arm V worked without repairing that.
+  Whether repairing it adds anything is untested.
+- Arm V's policy alone is still 1 to 33 problems short of the supervised
+  reference. Its search is not.
+
+## Comparands (added by this amendment)
+
+The block above was frozen before the run. The artifacts this amendment rests
+on are declared here.
+
+- `runs/w1/weak_w1_result.json`
+- `runs/phase1_d3/anchor.json`
+- `runs/phase1_d3/provenance.json`
+- `runs/ANCHORS.sha256`
+
+---
+
+## Exploration (not evidence), 2026-11-16, after the readings: starts with less supervision
+
+AGENTS §7.1. Run locally on the GPU while the pod ran, with
+`scripts/explore_weak_start.py` at `450ae8d`: the cut-down loop, 100 problems
+per depth (40 for the search reading), one run per cell, fifteen iterations of
+200 episodes. Both levers on, the steps target restricted to solved episodes,
+the value loss off (the exploration's arm E). **No registered round has tested
+any of this.** If the principal wants it tested, it is this page's successor: a
+round whose starting network has less supervision, or none.
+
+| starting network | no search, at par, depths 1–6 (of 600) | by depth | with search (of 240) |
+|---|---:|---|---:|
+| supervised on one-step problems only: at the start | 234 | 100 99 17 5 13 0 | 129 |
+| the same after fifteen iterations | 590 | 100 99 98 95 99 99 | 240 |
+| **no supervision at all** (random weights): at the start | 218 | 79 75 52 11 1 0 | 128 |
+| the same after fifteen iterations | 535 | 100 100 96 97 90 52 | 240 |
+
+- From one-step supervision the policy alone was within two problems of the
+  fully supervised anchor (588 on this population) by iteration 7 and past it
+  by iteration 9.
+- From random weights, the search was at par on all 240 sampled problems at
+  every reading from iteration 5 on. The policy alone stalled at about half of
+  the depth-6 problems from iteration 3 on, in both arms tried. That stall is
+  not understood.
