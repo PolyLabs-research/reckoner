@@ -16,34 +16,42 @@ those, and how fast, graded against exact BFS answers?
     explore_weak_start.py summary --root runs/explore/weak
 
 Arms of ``loop``. Each adds one thing to the one before, so a difference between
-neighbours has one cause. The patches are applied from here, by replacing module
-functions, so the library is untouched until a registered round asks for them:
+neighbours has one cause. **B's and V's mechanisms are config keys since WEAK-w1**
+(``search.past_par``, ``search.value_source``) and are set here by name, for
+every arm, so an arm means the same thing whatever the defaults are. Until
+2026-11-16 this script applied them as patches; the arithmetic is the same.
+What the library still does not have (C and F) is patched in from here, by
+replacing module functions:
 
-    A  the loop as merged: π′ target, value head silent, no rehearsal
+    A  the loop as M1 ran it: π′ target, value head silent, no rehearsal
        (rehearsal would feed the weak network BFS labels for the deep problems)
-    B  A + the search scores an unsolved state at or past par as a loss. Past par
-       the episode's z is -1 whatever happens next; the merged search asks the
-       silent value head instead, which answers 0, so an unexplored line outranks
-       a solution that is over par.
+    B  A + ``past_par: loss``: the search scores an unsolved state at or past par
+       as a loss. Past par the episode's z is -1 whatever happens next; the M1
+       search asks the silent value head instead, which answers 0, so an
+       unexplored line outranks a solution that is over par.
     C  B + the steps head trains only on rows from solved episodes. ``steps_loss``
        says it is masked that way; ``ring_batch`` passes a mask of all ones.
     D  C + the value head's loss is switched off, so nothing but the policy and
        the (clean) steps target reaches the shared layers.
-    E  D + the search's value comes from the STEPS head: a state reached after g
-       steps, with J predicted steps to go, is worth clip(par - g - J, -1, 0)
-       against exact par. The win/draw/loss head is not read at all. (Step 3 of
-       the review.) Until now the search read 0 for every unproven state, so it
-       could refute a bad move only by exhausting everything below it.
+    E  D + ``value_source: steps``: the search's value comes from the STEPS head.
+       A state reached after g steps, with J predicted steps to go, is worth
+       clip(par - g - J, -1, 0) against exact par. The win/draw/loss head is not
+       read at all. (Step 3 of the review.)
     F  E + the steps head is trained by one-step lookahead through the exact
        rules: target(s) = 1 + min over legal actions of J(child), a solved child
        counting 0, J from the weights the iteration started with; where the
        episode solved, the observed steps-to-go caps it. No solved episode is
        needed to give a state a target.
 
-    V  B + the search's value from the steps head, and nothing else: the training
-       step is the merged one (steps trained on every row, value loss on). E is
-       B + C + D + this, so V against E says whether C and D matter once the
+    V  B + ``value_source: steps`` and nothing else: the training step is the
+       merged one (steps trained on every row, value loss on). WEAK-w1's third
+       arm. E is V + C + D, so V against E says whether C and D matter once the
        search has a value.
+    S  V + C: the steps head trains only on rows from solved episodes, and the
+       value loss stays on. An unsolved episode's rows carry "steps to the cap"
+       as their steps target, which under ``value_source: steps`` tells the
+       search that a family it cannot yet solve is hopeless. S against V
+       isolates that; S against E isolates the value loss.
 
 ``--sims`` overrides the search budget for self-play and for the search reading,
 so "is it the budget or the value" has its own arm (B at a larger budget).
@@ -54,10 +62,31 @@ from ``train_100k`` at their exact BFS par, self-play into one ring, then
 steps) so that a curve costs minutes.
 
 What is read after every iteration, by problem depth 1-6:
-* greedy play (one simulation): solved, at par, capped, on frozen suite problems;
+* greedy play (one simulation): solved, at par, capped, on frozen suite problems,
+  in total and for the SOLVE-goal problems alone (see below);
 * the same with the full search budget, every ``--search-every`` iterations;
 * is the policy's top action OPTIMAL at the start state (needs ``optimal-sets``);
 * agreement with BFS's single label on ``phase1_eval``, by distance to solution.
+
+**The stratum no training set has.** ``train_100k`` holds no depth-6 SOLVE
+problem (the ``solve_both_sides_product`` template): counted on all 100,000
+rows, 0 of 3,550 at par 6, against 95 of the 200 in ``solve_in_6``. So the
+readings split out the SOLVE goal, and two more commands exist to test what
+practising that stratum does:
+
+    explore_weak_start.py mint --template solve_both_sides_product --count 400 \
+        --out runs/explore/weak4/extra_d6_solve.jsonl
+    explore_weak_start.py loop ... --extra runs/explore/weak4/extra_d6_solve.jsonl --extra-count 16
+
+``mint`` writes exploration-only problems, BFS-labelled, with every problem that
+appears in a frozen instrument or in ``train_100k`` left out. ``--extra-count``
+of each iteration's episodes are then drawn from that file instead of from
+``train_100k``.
+
+    explore_weak_start.py read --checkpoint runs/phase1/phase1.pt --search m1 bound steps
+
+reads one checkpoint on all ten suites (the four scripted mid strata included)
+under each named search, with no training at all.
 """
 
 from __future__ import annotations
@@ -81,15 +110,20 @@ from reckoner.campaign import SUITES, eval_profile
 from reckoner.config import Config, validate
 from reckoner.dataset import (
     anchored_data,
+    dataset_keys,
+    problem_key,
+    read_dataset,
     read_suite,
     sample_indices,
+    state_keys,
     suite_problem,
+    suite_row,
     training_problems,
 )
 from reckoner.episode import Problem, bfs_par, decode_state, verify
-from reckoner.evaluate import assert_eval_mode, model_evaluator
+from reckoner.evaluate import model_evaluator
+from reckoner.generator import TEMPLATES, generate
 from reckoner.model import (
-    N_RULES,
     Reckoner,
     StateTooLarge,
     crop_to_content,
@@ -101,10 +135,37 @@ from reckoner.replay import ReplayRing
 from reckoner.rules import apply, legal_actions
 from reckoner.runner import run_iteration
 from reckoner.train import SupervisionSet, make_batch, train, train_on_ring
+from reckoner.vocab import GOAL_SOLVE
 
 REPO = Path(__file__).resolve().parents[1]
 DEPTHS = (1, 2, 3, 4, 5, 6)
-ARMS = ("A", "B", "C", "D", "E", "F", "V")
+ARMS = ("A", "B", "C", "D", "E", "F", "V", "S")
+#: Each arm's search, as the two keys WEAK-w1 added: (past_par, value_source).
+SEARCH_OF_ARM = {
+    "A": ("evaluate", "wdl"),
+    "B": ("loss", "wdl"),
+    "C": ("loss", "wdl"),
+    "D": ("loss", "wdl"),
+    "E": ("loss", "steps"),
+    "F": ("loss", "steps"),
+    "V": ("loss", "steps"),
+    "S": ("loss", "steps"),
+}
+#: Named searches for ``read``: the one M1 ran, the past-par rule alone, both WEAK-w1
+#: levers, and both with the steps value capped at par whatever the par source
+#: (``ceiling0``, a patch: see :func:`install_zero_ceiling`).
+SEARCHES = {
+    "m1": ("evaluate", "wdl"),
+    "bound": ("loss", "wdl"),
+    "steps": ("loss", "steps"),
+    "ceiling0": ("loss", "steps"),
+}
+#: The four mid strata: scripted par, which a solution can beat (z = +1).
+MID_SUITES = tuple(f"scripted_in_{d}" for d in (7, 8, 9, 10))
+
+
+def search_as(cfg: Config, past_par: str, value_source: str) -> Config:
+    return replace(cfg, search=replace(cfg.search, past_par=past_par, value_source=value_source))
 
 
 # --------------------------------------------------------------------- data
@@ -208,21 +269,22 @@ def cmd_train_anchor(args: argparse.Namespace) -> int:
 # --------------------------------------------------------------- the arm patches
 
 
-def install_certain_loss_bound() -> None:
-    """Arm B: an unsolved state at or past par is a loss, and the search is told so."""
-    original = search_module._leaf_outcome
+def install_zero_ceiling() -> None:
+    """``read --search ceiling0``: no UNPROVEN state is worth more than par.
 
-    def bounded(problem, expr, cfg, rng, stats, *, total_steps):
-        outcome = original(problem, expr, cfg, rng, stats, total_steps=total_steps)
-        if outcome is None and total_steps >= problem.par:
-            # Counted with the step-cap terminals: the runner's descent identity
-            # requires every unevaluated node to be a counted terminal, and this
-            # exploration adds no counter of its own. A registered round would.
-            stats.step_cap_reached += 1
-            return -1.0
-        return outcome
+    Under ``value_source: steps`` the library caps an estimate at 0 against exact
+    par and at +1 against any other par, where finishing under par is possible.
+    On the scripted strata that lets a hopeful estimate outrank a proven at-par
+    solution. This caps the estimate at 0 everywhere; a solution the tree has
+    actually found under par still scores +1, because that is a proof, not an
+    estimate. Not a library key: an exploration of F-59's "registered, not done".
+    """
+    original = search_module._state_value
 
-    search_module._leaf_outcome = bounded
+    def capped(answer, problem, total_steps, cfg):
+        return min(0.0, original(answer, problem, total_steps, cfg))
+
+    search_module._state_value = capped
 
 
 class SolvedRows:
@@ -259,69 +321,6 @@ class SolvedRows:
             return batch
 
         train_module.ring_batch = masked
-
-
-class StepsValue:
-    """Arm E: the search's value is read off the steps head, on the z scale.
-
-    The evaluator is handed ``(problem, expr)`` and not how many steps the state
-    is into its episode, which the value needs. The search knows: it is recorded
-    here where the search creates each state (the root in ``_simulate``, every
-    other in ``_leaf_outcome``) and looked up when that same state comes back to
-    be evaluated, which is always before its search moves on.
-    """
-
-    def __init__(self) -> None:
-        self.steps_at: dict[int, int] = {}
-
-    def install(self) -> None:
-        table = self.steps_at
-        simulate = search_module._simulate
-        leaf_outcome = search_module._leaf_outcome
-
-        def recording_simulate(problem, expr, cfg, rng, sims, m, steps_taken=0):
-            table[id(expr)] = steps_taken
-            return simulate(problem, expr, cfg, rng, sims, m, steps_taken)
-
-        def recording_leaf(problem, expr, cfg, rng, stats, *, total_steps):
-            outcome = leaf_outcome(problem, expr, cfg, rng, stats, total_steps=total_steps)
-            if outcome is None:
-                table[id(expr)] = total_steps
-            return outcome
-
-        search_module._simulate = recording_simulate
-        search_module._leaf_outcome = recording_leaf
-
-    def evaluator(self, model, cfg: Config, device: str):
-        assert_eval_mode(model, cfg)
-        width = N_RULES * cfg.model.max_sites
-        table = self.steps_at
-
-        def evaluate(leaves):
-            encoded, keep = [], []
-            for i, (problem, expr) in enumerate(leaves):
-                try:
-                    encoded.append(encode(problem, expr, cfg))
-                    keep.append(i)
-                except StateTooLarge:
-                    continue
-            out = [(np.zeros(width, dtype=np.float32), 0.0) for _ in leaves]
-            if not encoded:
-                return out
-            sites = torch.stack([e.site_positions for e in encoded])
-            tokens = crop_to_content(torch.stack([e.tokens for e in encoded]), sites)
-            with torch.no_grad():
-                policy, _, steps = model(tokens.to(device), sites.to(device))
-                policy = policy.cpu().numpy().astype(np.float32)
-                to_go = steps.cpu().tolist()
-            for slot, i in enumerate(keep):
-                problem, expr = leaves[i]
-                remaining = problem.par - table[id(expr)]
-                ceiling = 0.0 if problem.par_source == "bfs" else 1.0
-                out[i] = (policy[slot], float(min(ceiling, max(-1.0, remaining - to_go[slot]))))
-            return out
-
-        return evaluate
 
 
 class BootstrappedSteps:
@@ -400,20 +399,44 @@ class BootstrappedSteps:
 # ------------------------------------------------------------------ readings
 
 
+def _cell(stats, source: str = "bfs") -> dict:
+    cell = stats.z_by_par_source.get(source, {})
+    return {
+        "n": stats.episodes,
+        "solved": stats.episodes_solved,
+        "at_par": int(cell.get("0", 0)) + int(cell.get("+1", 0)),
+        "under_par": int(cell.get("+1", 0)),
+        "capped": stats.episodes_capped,
+    }
+
+
 def read_play(model, cfg: Config, make_evaluator, per_suite: int, sims: int, m: int) -> dict:
-    """Episodes on frozen suite problems, measurement profile (no root noise)."""
+    """Episodes on frozen suite problems, measurement profile (no root noise).
+
+    Each depth is played in two parts, the SOLVE-goal problems and the rest, so
+    the stratum no training set holds (depth-6 SOLVE) can be read on its own.
+    ``solve`` is that part; the top-level numbers are the two parts summed.
+    """
     ev_cfg = eval_profile(cfg)
     evaluator = make_evaluator(model, ev_cfg)
     out = {}
     for depth in DEPTHS:
         problems = suite_problems(depth, per_suite)
-        stats = run_iteration(problems, evaluator, ev_cfg, None, sims=sims, m=m, seed=0)
-        cell = stats.z_by_par_source.get("bfs", {})
-        out[str(depth)] = {
-            "n": stats.episodes,
-            "solved": stats.episodes_solved,
-            "at_par": int(cell.get("0", 0)) + int(cell.get("+1", 0)),
-            "capped": stats.episodes_capped,
+        parts = {
+            "solve": [p for p in problems if p.goal == GOAL_SOLVE],
+            "other": [p for p in problems if p.goal != GOAL_SOLVE],
+        }
+        cells = {
+            name: _cell(run_iteration(part, evaluator, ev_cfg, None, sims=sims, m=m, seed=0))
+            for name, part in parts.items()
+            if part
+        }
+        total = {
+            key: sum(cell[key] for cell in cells.values())
+            for key in ("n", "solved", "at_par", "capped")
+        }
+        out[str(depth)] = total | {
+            "solve": cells.get("solve", {"n": 0, "solved": 0, "at_par": 0, "capped": 0})
         }
     return out
 
@@ -484,26 +507,23 @@ def cmd_loop(args: argparse.Namespace) -> int:
     if args.arm in ("D", "E", "F"):
         overrides["value_loss_weight"] = 0.0
     cfg = replace(cfg, train=replace(cfg.train, **overrides))
+    cfg = search_as(cfg, *SEARCH_OF_ARM[args.arm])
     if args.sims is not None:
         cfg = replace(cfg, search=replace(cfg.search, sims=args.sims))
     validate(cfg)
 
-    if args.arm != "A":
-        install_certain_loss_bound()
-    if args.arm in ("C", "D", "E", "F"):
+    if args.arm in ("C", "D", "E", "F", "S"):
         SolvedRows(args.capacity).install()
-    steps_value = StepsValue() if args.arm in ("E", "F", "V") else None
-    if steps_value is not None:
-        steps_value.install()
     bootstrap = BootstrappedSteps(cfg, args.device) if args.arm == "F" else None
     if bootstrap is not None:
         bootstrap.install()
 
     def make_evaluator(net, profile):
-        if steps_value is not None:
-            steps_value.steps_at.clear()
-            return steps_value.evaluator(net, profile, args.device)
         return model_evaluator(net, profile, 0.0, device=args.device)
+
+    extra = [suite_problem(row) for row in read_suite(args.extra)] if args.extra else []
+    if bool(extra) != bool(args.extra_count):
+        raise SystemExit("--extra and --extra-count go together")
 
     model, _ = load_checkpoint(args.anchor, cfg)
     model.to(args.device).eval()
@@ -533,6 +553,8 @@ def cmd_loop(args: argparse.Namespace) -> int:
             "anchor": str(args.anchor),
             "iteration": n,
             "sims": cfg.search.sims,
+            "search": list(SEARCH_OF_ARM[args.arm]),
+            "extra": [str(args.extra), args.extra_count] if args.extra else None,
             "reading": reading(
                 model, cfg, args.device, make_evaluator, args, eval_set, optimal_sets, with_search
             ),
@@ -545,7 +567,12 @@ def cmd_loop(args: argparse.Namespace) -> int:
 
         t0 = time.monotonic()
         stream = n + args.seed_offset * 1000
-        problems = training_problems(anchored_data("train_100k"), args.episodes, seed=stream)
+        problems = training_problems(
+            anchored_data("train_100k"), args.episodes - args.extra_count, seed=stream
+        )
+        if extra:
+            # The same number of episodes, some of them from the minted stratum.
+            problems += random.Random(stream).sample(extra, args.extra_count)
         stats = run_iteration(problems, make_evaluator(model, cfg), cfg, ring, seed=stream)
         seconds["self_play"] = round(time.monotonic() - t0, 1)
         row["self_play"] = {
@@ -583,6 +610,107 @@ def cmd_loop(args: argparse.Namespace) -> int:
     return 0
 
 
+# ------------------------------------------------- the stratum training lacks
+
+
+def _instrument_keys() -> set[tuple[int, ...]]:
+    """Every problem a frozen instrument holds, and every one ``train_100k`` holds.
+
+    A minted problem that matched an instrument would be training on the
+    measuring stick; one that matched ``train_100k`` would not be new.
+    """
+    keys: set[tuple[int, ...]] = set()
+    for path in sorted(SUITES.glob("*.jsonl")) + sorted((REPO / "runs" / "paired").glob("*.jsonl")):
+        keys |= state_keys(read_suite(path))
+    for name in ("eval_held_out", "train_100k"):
+        keys |= dataset_keys(read_dataset(anchored_data(name)))
+    return keys
+
+
+def _mint_one(job: tuple[str, int]) -> dict | None:
+    template, seed = job
+    problem = generate(template, random.Random(seed), Config())
+    return None if problem is None else suite_row(problem)
+
+
+def cmd_mint(args: argparse.Namespace) -> int:
+    if not args.out.resolve().is_relative_to((REPO / "runs" / "explore").resolve()):
+        raise SystemExit("minted problems are exploration-only: --out must be under runs/explore/")
+    started = time.monotonic()
+    barred = _instrument_keys()
+    rng = random.Random(args.seed)
+    rows: list[dict] = []
+    seen: set[tuple[int, ...]] = set()
+    dropped = {"unlabelled": 0, "duplicate": 0, "in_an_instrument_or_train": 0}
+    with multiprocessing.Pool(args.workers) as pool:
+        while len(rows) < args.count:
+            jobs = [(args.template, rng.randrange(2**62)) for _ in range(args.workers * 8)]
+            for row in pool.map(_mint_one, jobs, chunksize=1):
+                if row is None:
+                    dropped["unlabelled"] += 1
+                    continue
+                key = problem_key(suite_problem(row))
+                if key in barred:
+                    dropped["in_an_instrument_or_train"] += 1
+                elif key in seen:
+                    dropped["duplicate"] += 1
+                else:
+                    seen.add(key)
+                    rows.append(row)
+            print(f"  {len(rows)} minted, {dropped}, {time.monotonic() - started:.0f}s", flush=True)
+    rows = rows[: args.count]
+    args.out.parent.mkdir(parents=True, exist_ok=True)
+    args.out.write_text("".join(json.dumps(row, sort_keys=True) + "\n" for row in rows))
+    pars: dict[int, int] = {}
+    for row in rows:
+        pars[row["par"]] = pars.get(row["par"], 0) + 1
+    print(
+        f"  wrote {args.out}: {len(rows)} problems from {args.template}, by par {sorted(pars.items())}"
+    )
+    return 0
+
+
+def cmd_read(args: argparse.Namespace) -> int:
+    """One checkpoint, every suite, each named search. No training."""
+    torch.set_num_threads(args.threads)
+    base = Config()
+    if args.sims is not None:
+        base = replace(base, search=replace(base.search, sims=args.sims))
+    model, _ = load_checkpoint(args.checkpoint, base)
+    model.to(args.device).eval()
+    suites = [f"solve_in_{d}" for d in DEPTHS] + list(MID_SUITES)
+    report = {"checkpoint": str(args.checkpoint), "sims": base.search.sims, "searches": {}}
+    if "ceiling0" in args.search and len(args.search) > 1:
+        raise SystemExit("ceiling0 patches the search for the whole process: read it on its own")
+    if args.search == ["ceiling0"]:
+        install_zero_ceiling()
+    for name in args.search:
+        cfg = eval_profile(search_as(base, *SEARCHES[name]))
+        validate(cfg)
+        evaluator = model_evaluator(model, cfg, 0.0, device=args.device)
+        rows = {}
+        for suite in suites:
+            all_rows = read_suite(SUITES / f"{suite}.jsonl")
+            picked = sample_indices(len(all_rows), min(args.per_suite, len(all_rows)), 0)
+            problems = [suite_problem(all_rows[i]) for i in picked]
+            started = time.monotonic()
+            stats = run_iteration(problems, evaluator, cfg, None, seed=0)
+            source = "bfs" if suite.startswith("solve_in") else problems[0].par_source
+            rows[suite] = _cell(stats, source) | {"seconds": round(time.monotonic() - started, 1)}
+            cell = rows[suite]
+            print(
+                f"  [{name:>7}] {suite:<14} at par {cell['at_par']:>3}  under par "
+                f"{cell['under_par']:>3}  solved {cell['solved']:>3}  capped {cell['capped']:>3}  "
+                f"of {cell['n']}  ({cell['seconds']}s)",
+                flush=True,
+            )
+        report["searches"][name] = rows
+    if args.out:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(json.dumps(report, sort_keys=True, indent=2) + "\n")
+    return 0
+
+
 # ------------------------------------------------------------------- summary
 
 
@@ -608,6 +736,11 @@ def cmd_summary(args: argparse.Namespace) -> int:
                     "   search at par "
                     + " ".join(f"{search[str(d)]['at_par']:>3}" for d in DEPTHS)
                     + f" /{search['1']['n']}"
+                )
+            if "solve" in greedy["1"]:
+                line += "   SOLVE goal at par " + " ".join(
+                    f"{greedy[str(d)]['solve']['at_par']:>3}/{greedy[str(d)]['solve']['n']:<3}"
+                    for d in DEPTHS
                 )
             optimal = row["reading"].get("optimal_top")
             if optimal:
@@ -653,10 +786,30 @@ def main() -> int:
     p.add_argument("--seed-offset", type=int, default=0, help="shift every stream: a replicate")
     p.add_argument("--capacity", type=int, default=200_000)
     p.add_argument("--optimal-sets", type=Path, default=None)
+    p.add_argument("--extra", type=Path, default=None, help="minted problems (see `mint`)")
+    p.add_argument("--extra-count", type=int, default=0, help="episodes per iteration from --extra")
     p.add_argument("--device", default="cpu")
     p.add_argument("--threads", type=int, default=2)
     p.add_argument("--out-dir", type=Path, required=True)
     p.set_defaults(run=cmd_loop)
+
+    p = sub.add_parser("mint")
+    p.add_argument("--template", choices=sorted(TEMPLATES), required=True)
+    p.add_argument("--count", type=int, required=True)
+    p.add_argument("--seed", type=int, default=0)
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--out", type=Path, required=True)
+    p.set_defaults(run=cmd_mint)
+
+    p = sub.add_parser("read")
+    p.add_argument("--checkpoint", type=Path, required=True)
+    p.add_argument("--search", nargs="+", choices=sorted(SEARCHES), required=True)
+    p.add_argument("--per-suite", type=int, default=200)
+    p.add_argument("--sims", type=int, default=None, help="override the search budget")
+    p.add_argument("--device", default="cpu")
+    p.add_argument("--threads", type=int, default=2)
+    p.add_argument("--out", type=Path, default=None)
+    p.set_defaults(run=cmd_read)
 
     p = sub.add_parser("summary")
     p.add_argument("--root", type=Path, required=True)
