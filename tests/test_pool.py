@@ -14,7 +14,7 @@ import pytest
 import torch
 
 from reckoner.absence import Absent
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.model import Reckoner, save_checkpoint
 from reckoner.pool import CheckpointPool, PoolError
@@ -22,7 +22,9 @@ from reckoner.valuegate import ValueHeadState
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: The declaration these tests are about is the win/draw/loss head's, and the
+#: evaluators below report no steps-to-go: both belong to the search that reads 'wdl'.
+CFG = with_m1_search(Config())
 
 needs_suites = pytest.mark.skipif(
     not (SUITES / "solve_in_1.jsonl").exists(), reason="suites not generated"

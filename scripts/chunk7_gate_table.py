@@ -17,7 +17,7 @@ from pathlib import Path
 
 import numpy as np
 
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.episode import Problem
 from reckoner.expr import add, eq, mul, num, var
@@ -26,7 +26,9 @@ from reckoner.search import run_batched, search, uniform_stub
 from reckoner.vocab import GOAL_SOLVE, VAR_X
 
 REPO = Path(__file__).resolve().parents[1]
-CFG = Config()
+#: Chunk 7's gates were measured with `uniform_stub`, which reports no steps-to-go,
+#: so every config here is the search that reads 'wdl' (the default until 2026-11-16).
+CFG = with_m1_search(Config())
 X = var(VAR_X)
 PROBLEM = Problem(
     goal=GOAL_SOLVE,
@@ -68,7 +70,7 @@ def main() -> int:
     out["budget_identity"] = rows
 
     # --- determinism: 2-seed in the eval profile ------------------------
-    cfg_eval = Config()
+    cfg_eval = with_m1_search(Config())
     cfg_eval.search.root_noise = False
     a = search(
         PROBLEM, PROBLEM.expr, uniform_stub(cfg_eval), cfg_eval, random.Random(1), sims=16, m=5
@@ -120,7 +122,7 @@ def main() -> int:
     out["depth1_gate"] = gate
 
     # --- StateTooLarge under real descent ---------------------------------
-    cfg_small = Config()
+    cfg_small = with_m1_search(Config())
     cfg_small.model.seq_len = 26
     r = search(
         PROBLEM, PROBLEM.expr, uniform_stub(cfg_small), cfg_small, random.Random(3), sims=48, m=5

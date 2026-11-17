@@ -462,3 +462,131 @@ What the ruling does not do:
 - It does not change the campaign's starting network or its instrument floors.
   `NO_REGRESS` was derived under the old search. The next campaign's PREREG
   re-derives it.
+
+---
+
+## Amendment (2026-11-17): the ruling's item 2, carried out in part
+
+**Done: `search.past_par` defaults to `loss`.** In the dataclass and in
+`configs/default.yaml`. The pinned pair moved once:
+
+| | campaign | eval |
+|---|---|---|
+| before | `16c1776ead71822f…` | `fb7ba396bee3e77e…` |
+| now | `3f61d9402c153413…` | `cfa0d4086d448c64…` |
+
+`FINGERPRINT_HISTORY` holds the earlier pair as its fifth entry, with the value
+that moved. The test that walks the history backwards now undoes a moved
+default as well as an added key, and still recovers every earlier pair down to
+M1's.
+
+**Held: `search.value_source` still defaults to `wdl`.** The ruling named both
+keys. While carrying it out, the Phase-1 anchor was read under each search on
+all ten suites (the exploration below). On the six exact-par suites the
+steps-head value is the best search read. On the four scripted strata, where
+par can be beaten, it is at par on 557 problems of 800 where the default it
+would replace is at par on 788. This round could not have shown that: its
+problems are of depth ≤ 6 at exact par, and its Limits and F-59's "registered,
+not done" both name the suspect, the +1 ceiling against a par that is not exact.
+
+A default is what the next campaign runs without choosing, and the next
+campaign's primary population is those strata. So the second key waits for the
+principal. The agent's recommendation is to leave it at `wdl` until a registered
+round has read it there. That round is to be WEAK-w2, drafted on the branch
+after this one. The ruling's own text (both keys, one move) is not what was
+done, and this section is the record of the difference.
+
+**The search every earlier round ran is one call away.**
+`reckoner.config.with_m1_search(cfg)` sets both keys to the values M1 ran, and
+at the defaults its result fingerprints at the pair pinned before the move. It
+is used where a number must keep its meaning:
+
+- **This round's arms.** `configs/w1_a.yaml` and `w1_b.yaml` now name both keys
+  at the values their runs ran; `w1_v.yaml` always did. A test pins each file's
+  fingerprint, at each seed, to the one recorded in that run's
+  `iterations.jsonl`, and the baseline and reference readings likewise.
+- **`scripts/weak_w1.py reference`**: "under the merged search", as registered.
+- **`scripts/ring0_replay.py`**: M1's iteration 0, whose halt gate is that
+  iteration's own counts.
+- **Everything that plays `uniform_stub`.** The stub reports no steps-to-go and
+  `'steps'` refuses an evaluator that reports none, so the stub belongs to the
+  `'wdl'` search, and the numbers these scripts and tests carry were taken
+  before the past-par rule existed: `chunk7_gate_table.py`,
+  `chunk11_part0e.py`, `gate_phase1_search.py`, `f54_policy_target_probe.py`,
+  `f54_box_iteration.py`, and by name where the probe must also run in older
+  trees, `f53_ring_target_probe.py` and `f54_visits_arm_identity.py`. Ten test
+  modules build the same config for the same reason.
+
+**What runs the new default without being told:** the campaign driver,
+`golden`, the campaign's instruments, and every script that builds `Config()`
+and is not listed above. The Part-0 scripts that derive a campaign's baselines
+are among them on purpose: the next campaign's baselines are to be read under
+the search it will run.
+
+**Tests no longer lean on the default.** The search, runner and evaluator tests
+that exercise WEAK-w1's levers now name the search they run (the past-par rule
+alone, and with the steps-head value), on a real network, so they hold whichever
+way the second key is ruled.
+
+### Gates
+
+| gate | floor | null | threshold | measured |
+|---|---|---|---|---|
+| The history walks back to M1's pair, one recorded move at a time | 0 of 5 pairs recovered | a config with one other value moved: 0 of 5 (tested) | 5 of 5, both profiles | 5 of 5, both profiles |
+| Each arm file fingerprints as its runs recorded | 0 of 9 runs | the files as they stood before this amendment, under the new default: arm A's and B's would not match | 9 of 9, and the 3 baselines and the reference | 9 of 9, 3 of 3, 1 of 1 |
+| Ring-0 replay under `with_m1_search` | not reproduced | the same replay with no pin, under today's default: 400 / 400 solved, 87 pool-par, 1,274 rows, HALT | M1's own 398 / 400, 99 pool-par, 1,305 rows, and the ring arrays byte-identical to the tracked ring-0 | reproduced, byte-identical |
+| `golden` under the new default | any check failing | not applicable: a liveness check | 15 of 15 checks | 15 of 15, 38.6 s |
+| Whole suite, data present | any failure | 82 failures with both defaults moved and nothing else changed: 80 where the stub was refused, 2 that unpacked a pair | 0 failed, 0 skipped | see the commit: `runs/testcount.json` |
+
+### What this does not do
+
+- **`NO_REGRESS`, the watchlist's reference rows and the Part-0d paired
+  baseline** were read under the search M1 ran. They are M1's instruments. The
+  next campaign's PREREG re-derives them under the search it registers.
+- **F-56 and F-57** are not re-read.
+- **No floor is claimed for the stub under the past-par rule.** The stub can
+  play it (the value source is still `'wdl'`), and no gate has been measured
+  that way.
+
+## Comparands (added by this amendment)
+
+- `runs/ring0_replay/replay.json`
+- `runs/w1/reference/reading_result.json`
+- `runs/w1/baseline/A/reading_result.json`
+- `runs/w1/baseline/B/reading_result.json`
+- `runs/w1/baseline/V/reading_result.json`
+
+---
+
+## Exploration (not evidence), 2026-11-17: the Phase-1 anchor under each search, all ten suites
+
+AGENTS §7.1. `scripts/explore_weak_start.py read`, on the GPU, batched, one run
+per cell, 200 problems per suite, no training. **No registered round has read
+any of this.** The round that will is WEAK-w2, drafted on the branch after
+this one.
+
+At par, of 1,200 on the six exact-par suites and of 800 on the four scripted
+strata (depths 7 to 10). In brackets, how many of those 800 finished under par.
+
+| search | exact, 48 sims | scripted, 48 sims | exact, 8 sims | scripted, 8 sims |
+|---|---:|---:|---:|---:|
+| the search M1 ran | 1,193 | 788 (265) | 1,189 | 788 (92) |
+| + the past-par rule (today's default) | 1,197 | 788 (265) | 1,189 | 788 (92) |
+| + the steps-head value, as arm V ran it | 1,200 | 557 (378) | 1,200 | 717 (206) |
+| the same with an unproven state worth no more than par | 1,200 | 800 (268) | 1,200 | 799 (92) |
+
+- **The past-par rule costs nothing anywhere it was read.** On the scripted
+  strata at 48 simulations it also solves all 800, where the search M1 ran
+  leaves 12 at the step cap.
+- **The steps-head value as arm V ran it trades at-par for under-par on the
+  scripted strata.** It finishes under par more often (378 against 265) and
+  over par far more often (243 against 12).
+- **Why, as far as this reading goes.** Against a par that can be beaten, an
+  estimate may be worth up to +1. The steps head was trained on distances of 6
+  and less. On a state 9 steps from solved it guesses low, the state looks
+  under par, and that guess outranks a solution the tree has actually found at
+  par.
+- **The last row is a patch, not a library key.** It caps an estimate at 0
+  against every par source. A solution found under par inside the tree still
+  scores +1, because that is a proof. It is F-59's "registered, not done"
+  item, read for the first time.

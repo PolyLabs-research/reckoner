@@ -33,6 +33,7 @@ from reckoner.config import (
     config_fingerprint,
     stream_seed,
     validate,
+    with_m1_search,
 )
 from reckoner.dataset import read_suite, sample_indices, suite_problem
 from reckoner.replay import ReplayRing
@@ -52,7 +53,9 @@ def _ring_digest(cfg: Config, n: int) -> str:
     rows = read_suite(REPO / "runs" / "suites" / "solve_in_3.jsonl")
     problems = [suite_problem(rows[i]) for i in sample_indices(len(rows), 6, 0)]
     ring = ReplayRing(2000, cfg)
-    run_iteration(problems, uniform_stub(cfg), cfg, ring, sims=16, seed=stream_seed(cfg, n))
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'.
+    play = with_m1_search(cfg)
+    run_iteration(problems, uniform_stub(play), play, ring, sims=16, seed=stream_seed(cfg, n))
     digest = hashlib.sha256()
     for name in ("tokens", "visit_actions", "visit_counts", "improved_probs"):
         digest.update(getattr(ring, name)[: len(ring)].tobytes())

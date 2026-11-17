@@ -40,7 +40,7 @@ import numpy as np
 import torch
 
 import reckoner
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import read_suite, sample_indices, suite_problem
 from reckoner.evaluate import model_evaluator
 from reckoner.model import Reckoner
@@ -149,7 +149,9 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=None)
     args = parser.parse_args()
 
-    cfg = Config()
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'
+    # (the default until 2026-11-16).
+    cfg = with_m1_search(Config())
     problems = []
     for path in SUITES:
         rows = read_suite(path)

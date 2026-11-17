@@ -80,6 +80,10 @@ cfg = Config()
 cfg = replace(cfg, train=replace(cfg.train, rehearsal_frac=frac))
 if hasattr(cfg.train, "policy_target"):
     cfg = replace(cfg, train=replace(cfg.train, policy_target=target))
+if hasattr(cfg.search, "value_source"):
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl':
+    # the only search the base tree has, and the default here until 2026-11-16.
+    cfg = replace(cfg, search=replace(cfg.search, past_par="evaluate", value_source="wdl"))
 problems = []
 for path in sorted(suites.glob("*.jsonl")):
     rows = read_suite(path)

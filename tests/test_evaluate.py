@@ -125,17 +125,20 @@ def test_a_self_play_arm_keeps_the_profile_it_declares() -> None:
 
 
 @needs_suites
-def test_the_evaluator_crops_its_batch_and_changes_no_bit() -> None:
+@pytest.mark.parametrize("value_source", ["wdl", "steps"])
+def test_the_evaluator_crops_its_batch_and_changes_no_bit(value_source: str) -> None:
     """F-58, both polarities: the crop fires, and it is free.
 
     The evaluator padded every leaf to ``model.seq_len`` until F-58. Compared here
-    against that full-width forward pass, written out by hand: the policy rows
-    and the values must be bit for bit the same, and the batch must really have
-    been narrower than the envelope — otherwise the equality proves nothing.
+    against that full-width forward pass, written out by hand: the policy rows,
+    the values and (under ``'steps'``, which reads them) the steps-to-go must be
+    bit for bit the same, and the batch must really have been narrower than the
+    envelope — otherwise the equality proves nothing.
     """
     from reckoner import evaluate
     from reckoner.model import encode
 
+    cfg = replace(CFG, search=replace(CFG.search, value_source=value_source))
     model = a_model()
     leaves = [
         (p, p.expr)
@@ -153,23 +156,26 @@ def test_the_evaluator_crops_its_batch_and_changes_no_bit() -> None:
 
     evaluate.crop_to_content = recording
     try:
-        got = model_evaluator(model, CFG, 1.0)(leaves)
+        got = model_evaluator(model, cfg, 1.0)(leaves)
     finally:
         evaluate.crop_to_content = real
-    assert widths and max(widths) < CFG.model.seq_len, f"the crop did not fire: {widths}"
+    assert widths and max(widths) < cfg.model.seq_len, f"the crop did not fire: {widths}"
 
-    encoded = [encode(problem, expr, CFG) for problem, expr in leaves]
+    encoded = [encode(problem, expr, cfg) for problem, expr in leaves]
     with torch.no_grad():
-        policy, value_logits, _ = model(
+        policy, value_logits, steps = model(
             torch.stack([e.tokens for e in encoded]),
             torch.stack([e.site_positions for e in encoded]),
         )
         probs = torch.softmax(value_logits, dim=1)
         expected = (probs[:, 0] - probs[:, 2]).tolist()
     assert len(got) == len(leaves)
-    for slot, (prior, value) in enumerate(got):
+    for slot, (prior, value, *to_go) in enumerate(got):
         assert torch.equal(torch.from_numpy(prior), policy[slot]), f"policy row {slot} moved"
         assert value == float(expected[slot]), f"value {slot} moved"
+        assert to_go == ([float(steps[slot])] if value_source == "steps" else []), (
+            f"steps-to-go {slot} moved, or was reported unasked"
+        )
 
 
 def test_the_evaluator_runs_where_it_is_told_and_defaults_to_the_cpu() -> None:
@@ -185,8 +191,9 @@ def test_the_evaluator_runs_where_it_is_told_and_defaults_to_the_cpu() -> None:
     if leaves:
         default = model_evaluator(model, CFG, 0.0)(leaves)
         named = model_evaluator(model, CFG, 0.0, device="cpu")(leaves)
-        for (a, _), (b, _) in zip(default, named, strict=True):
+        for (a, *rest_a), (b, *rest_b) in zip(default, named, strict=True):
             assert torch.equal(torch.from_numpy(a), torch.from_numpy(b))
+            assert rest_a == rest_b
         with pytest.raises((RuntimeError, AssertionError)):
             model_evaluator(model, CFG, 0.0, device="not-a-device")(leaves)
 

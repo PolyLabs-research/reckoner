@@ -26,14 +26,15 @@ import pytest
 import torch
 
 from reckoner import runner
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.generator import emit, label
 from reckoner.model import N_RULES, IllegalTargetError, StateTooLarge, action_index, encode
 from reckoner.replay import VISIT_SLOTS, ReplayRing
 from reckoner.search import SearchResult, uniform_stub
 from reckoner.train import ring_batch
 
-CFG = Config()
+#: `uniform_stub` reports no steps-to-go, so it plays the search that reads 'wdl'.
+CFG = with_m1_search(Config())
 MAX_SITES = CFG.model.max_sites
 
 #: (template, seed) pairs spanning all three goals and depths 2-4. Fixed, so the

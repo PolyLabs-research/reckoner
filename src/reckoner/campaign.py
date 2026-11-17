@@ -78,12 +78,14 @@ REPO = Path(__file__).resolve().parents[2]
 SUITES = REPO / "runs" / "suites"
 
 # --- the two fingerprints, and every pair they have been --------------------
-# The pin is what THIS code computes from the default config. It moves each time
-# a config key is added, once per key, and `FINGERPRINT_HISTORY` below records
-# every pair it has been, oldest first, with the key whose addition moved it on.
-# A test walks the chain backwards: starting from today's config, deleting those
-# keys one at a time recovers each recorded pair exactly, down to M1's. So every
-# move was exactly its key, and nothing else has moved since M1.
+# The pin is what THIS code computes from the default config. It moves when a
+# config key is added (once per key) and when a ruling moves a default (once per
+# move), and `FINGERPRINT_HISTORY` below records every pair it has been,
+# oldest first, with what moved it on. A test walks the chain backwards:
+# starting from today's config, undoing those moves one at a time (setting a
+# moved default back, deleting an added key) recovers each recorded pair
+# exactly, down to M1's. So every move was exactly what its entry says, and
+# nothing else has moved since M1.
 #
 # REGISTERED BY NO PREREG YET — M1 is closed, and the next campaign's PREREG
 # records the pinned pair before launch.
@@ -100,14 +102,19 @@ SUITES = REPO / "runs" / "suites"
 # The driver runs TWO profiles and therefore makes TWO assertions, each pinned
 # where its profile acts (D-A2 §2). A single startup check would compare one
 # profile's value against a run that also uses the other.
-CAMPAIGN_FINGERPRINT = "16c1776ead71822fa19a670eb25d1edfca2373e2e3927d3706a40d4f8d857185"
-EVAL_FINGERPRINT = "fb7ba396bee3e77ed8f87c22bf77c834ada2ea6951e61e5b14ba5f926d8b2310"
+CAMPAIGN_FINGERPRINT = "3f61d9402c153413a7d717f189a8836d109364797bbae1b5c4e51ec526072f90"
+EVAL_FINGERPRINT = "cfa0d4086d448c645f781202ce1c32e6503bc9a743b26564066499f8bdab3d30"
 
-#: Every pair the door pinned before today's, oldest first. ``then_added`` is the
-#: config key whose ADDITION, at its default, moved the pin to the next pair (the
-#: last entry's moved it to the pair pinned above). Literals, never recomputed:
-#: no dataclass can represent an earlier era's config any more, and a pin that
-#: moves must not rewrite what a completed run was measured at.
+#: Every pair the door pinned before today's, oldest first, and what moved the
+#: pin to the next pair (the last entry's moved it to the pair pinned above).
+#: Each entry carries exactly one of:
+#:
+#: ``then_added``  the config key whose ADDITION, at its default, moved the pin;
+#: ``then_moved``  the defaults a ruling MOVED, as ``{key: (was, became)}``.
+#:
+#: Literals, never recomputed: no dataclass can represent an earlier era's
+#: config any more, and a pin that moves must not rewrite what a completed run
+#: was measured at.
 FINGERPRINT_HISTORY = (
     {
         "era": "M1",
@@ -137,7 +144,27 @@ FINGERPRINT_HISTORY = (
         "then_added": "search.value_source",
         "when": "added 2026-11-16 as WEAK-w1's second lever, at the default M1 ran",
     },
+    {
+        # WEAK-w1 was built under it. Its arm A is this pair's config plus the
+        # round's eight benchmark settings; no campaign ran at the pair itself.
+        "era": "value-source",
+        "campaign": "16c1776ead71822fa19a670eb25d1edfca2373e2e3927d3706a40d4f8d857185",
+        "eval": "fb7ba396bee3e77ed8f87c22bf77c834ada2ea6951e61e5b14ba5f926d8b2310",
+        "then_moved": {"search.past_par": ("evaluate", "loss")},
+        "when": "moved 2026-11-17 on the principal's ruling of 2026-11-16 on WEAK-w1 (F-59)",
+    },
 )
+
+
+def describe_move(era: dict) -> str:
+    """What moved the pin on from ``era``, in words, for a refusal's message."""
+    if "then_added" in era:
+        return f"{era['then_added']} added"
+    return ", ".join(
+        f"{key} moved from {was!r} to {became!r}"
+        for key, (was, became) in era["then_moved"].items()
+    )
+
 
 #: The values M1 ACTUALLY RAN UNDER, under the name the pages and scripts use.
 #: One literal (in the history above), two names.
@@ -373,8 +400,7 @@ def assert_eval_profile(cfg: Config) -> str:
             f"eval profile fingerprint {got} != the pinned {EVAL_FINGERPRINT}; "
             f"this pass is not comparable to its baseline. (M1 ran under "
             f"{M1_ERA_FINGERPRINTS['eval']}; the pin has moved {len(FINGERPRINT_HISTORY)} "
-            "times since, once for each key added: "
-            f"{', '.join(era['then_added'] for era in FINGERPRINT_HISTORY)}.)"
+            f"times since: {'; '.join(describe_move(era) for era in FINGERPRINT_HISTORY)}.)"
         )
     return got
 

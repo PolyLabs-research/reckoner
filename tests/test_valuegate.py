@@ -270,6 +270,7 @@ needs_train_set = pytest.mark.skipif(
 
 
 def _filled_ring(cfg):
+    from reckoner.config import with_m1_search
     from reckoner.dataset import anchored_data, training_problems
     from reckoner.replay import ReplayRing
     from reckoner.runner import run_iteration
@@ -277,7 +278,9 @@ def _filled_ring(cfg):
 
     ring = ReplayRing(2048, cfg)
     problems = training_problems(anchored_data("train_100k"), 20, seed=0)
-    run_iteration(problems, uniform_stub(cfg), cfg, ring, sims=8, m=5, seed=0)
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'.
+    play = with_m1_search(cfg)
+    run_iteration(problems, uniform_stub(play), play, ring, sims=8, m=5, seed=0)
     return ring
 
 

@@ -47,6 +47,12 @@ PAST_PAR_RULES = ("evaluate", "loss")
 #: reports steps-to-go under ``'steps'``, and by the search, which converts it.
 VALUE_SOURCES = ("wdl", "steps")
 
+#: The search every round up to and including WEAK-w1's arm A ran, as the values
+#: of the two keys that round added. Both were the defaults until the ruling of
+#: 2026-11-16; ``past_par`` has moved since. Both are named so that this stays the
+#: M1 search whatever either default becomes. :func:`with_m1_search` applies them.
+M1_SEARCH = {"past_par": "evaluate", "value_source": "wdl"}
+
 #: The policy targets ``train.policy_target`` may name (F-54). ``ring_batch``
 #: dispatches on exactly these, and a test pins that the two sets are equal.
 POLICY_TARGETS: tuple[str, ...] = ("improved", "visits")
@@ -224,25 +230,28 @@ class SearchConfig:
     # rather than silently freezing it. Suites and the ladder run root_noise off.
     root_noise: bool = True
 
-    # [WEAK-w1 — a registered lever; the default is the search M1 ran] What the
-    # search does with an UNSOLVED state it creates at or past par.
+    # [WEAK-w1, F-59 — DECIDED by the principal's ruling of 2026-11-16; the default
+    # was `evaluate`, the search every round up to WEAK-w1 ran] What the search
+    # does with an UNSOLVED state it creates at or past par.
     #
-    #   evaluate  ask the evaluator, as for any other state. While the value head
-    #             is silent that answer is 0: "level with par", for a state that
-    #             can no longer be level with par.
     #   loss      score it -1 and stop there. Once the step count has reached par
     #             with the problem unsolved, the episode's z is -1 whatever
     #             follows, so this is the par game's own arithmetic, not a
-    #             heuristic.
+    #             heuristic, and it holds against every par source.
+    #   evaluate  ask the evaluator, as for any other state. While the value head
+    #             is silent that answer is 0: "level with par", for a state that
+    #             can no longer be level with par.
     #
     # Under `evaluate` an over-par SOLUTION (-1, exactly) ranks below an
     # unexplored line (0), so past par the search prefers anything to solving.
-    # The exploration that surfaced it is recorded in WEAK-w1.md; the default
-    # moves only on that round's reading and the principal's ruling.
-    past_par: str = "evaluate"
+    # WEAK-w1 measured it (arm B against arm A); `M1_SEARCH` above names the old
+    # value for anything that must reproduce an earlier round.
+    past_par: str = "loss"
 
-    # [WEAK-w1 — a registered lever; the default is the search M1 ran] Where the
-    # search gets the value of a state it has not proven.
+    # [WEAK-w1, F-59 — a registered lever; the default is still the search M1 ran.
+    # The same ruling made `steps` the default too. It is HELD at `wdl`, pending
+    # the principal: see WEAK-w1.md, amendment of 2026-11-17.] Where the search
+    # gets the value of a state it has not proven.
     #
     #   wdl    the win/draw/loss head, scaled by the value gate's declaration
     #          (0 until its switch fires; it never fired in M1's 20 iterations).
@@ -251,10 +260,14 @@ class SearchConfig:
     #          still finish at par, falling to -1 as it runs a step over. The
     #          ceiling is 0 against exact par (nothing beats it) and +1 otherwise.
     #          The value gate is not consulted: the steps head is trained from
-    #          Phase 1, which is what the gate exists to wait for.
+    #          Phase 1, which is what the gate exists to wait for. An evaluator
+    #          that reports no steps-to-go is refused, so `uniform_stub`, which
+    #          has no steps head, runs only under `wdl`.
     #
     # Under `wdl` with a silent head the search can refute a move only by
-    # exhausting everything beneath it. The exploration is recorded in WEAK-w1.md.
+    # exhausting everything beneath it. WEAK-w1 measured `steps` against it (arm
+    # V against arm B) on problems of depth <= 6 at exact par, where the gain is
+    # large. It has not been measured where par can be beaten.
     value_source: str = "wdl"
 
 
@@ -496,6 +509,19 @@ def stream_seed(cfg: Config, n: int) -> int:
     if not 0 <= n < STREAM_STRIDE:
         raise ValueError(f"iteration {n} is outside the stream numbering [0, {STREAM_STRIDE})")
     return n + ((cfg.seed - REGISTERED_SEED) % SEED_SPACE) * STREAM_STRIDE
+
+
+def with_m1_search(cfg: Config) -> Config:
+    """``cfg`` searching the way every round up to WEAK-w1's arm A searched.
+
+    The two keys in :data:`M1_SEARCH` were both at these values by default until
+    2026-11-16. A script that reproduces a measurement taken before then, a test
+    that pins a number from then, and anything that plays ``uniform_stub`` (which
+    reports no steps-to-go, so ``value_source = 'steps'`` refuses it) builds its
+    config through here. The result fingerprints as its own config: this is a
+    setting under the fingerprint, not a mode beside it.
+    """
+    return dataclasses.replace(cfg, search=dataclasses.replace(cfg.search, **M1_SEARCH))
 
 
 def validate(cfg: Config) -> None:

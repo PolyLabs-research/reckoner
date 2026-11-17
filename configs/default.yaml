@@ -83,8 +83,11 @@ search:
   # one tree; within-tree pooling was removed as unsound (A3, was batch_leaves).
   batch_searches: 512
   root_noise: true  # [plan chunk 7] the SELF-PLAY value; suites/ladder run false
-  past_par: evaluate  # [WEAK-w1 — registered lever] evaluate (the search M1 ran) | loss (an unsolved state at or past par is -1)
-  value_source: wdl   # [WEAK-w1 — registered lever] wdl (the search M1 ran) | steps (value from the steps head against par)
+  # [WEAK-w1, F-59 — DECIDED by the ruling of 2026-11-16; was `evaluate`, the search M1 ran]
+  past_par: loss      # loss (an unsolved state at or past par is -1) | evaluate (ask the evaluator)
+  # [WEAK-w1, F-59 — registered lever; ruled to become `steps`, HELD at the search M1 ran
+  # pending the principal: WEAK-w1.md, amendment of 2026-11-17]
+  value_source: wdl   # wdl (the win/draw/loss head) | steps (value from the steps head against par)
 
 # --- training [plan chunks 8, 9] --------------------------------------------
 train:

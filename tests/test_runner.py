@@ -12,7 +12,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from reckoner.config import Config, config_fingerprint
+from reckoner.config import Config, config_fingerprint, with_m1_search
 from reckoner.dataset import git_sha, read_suite, suite_problem
 from reckoner.logschema import SCHEMA_ERA, validate_row
 from reckoner.replay import ReplayRing
@@ -23,7 +23,10 @@ from reckoner.vocab import VOCAB_VERSION
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: The search these counts were first taken under: no past-par rule, and the
+#: stub's own value read as given (`uniform_stub` reports no steps-to-go). WEAK-w1's
+#: two levers have their own test below, on a real network.
+CFG = with_m1_search(Config())
 
 needs_suites = pytest.mark.skipif(
     not (SUITES / "solve_in_2.jsonl").exists(), reason="suites not generated"
@@ -45,6 +48,31 @@ def test_the_descent_identity_holds_over_a_real_iteration() -> None:
     stats = run_iteration(problems(2, 12), uniform_stub(CFG), CFG, sims=16, m=5, seed=1)
     assert stats.nodes - stats.evaluations == stats.terminals
     assert stats.terminals > 0, "an iteration with no terminals would not exercise the identity"
+
+
+@needs_suites
+@pytest.mark.parametrize(
+    ("past_par", "value_source"), [("loss", "wdl"), ("loss", "steps")], ids=["bound", "steps"]
+)
+def test_the_descent_identity_holds_with_weak_w1s_levers(past_par: str, value_source: str) -> None:
+    """The same books with the past-par rule (``Config()`` as it stands since
+    2026-11-17) and with the steps-head value on top, on a real network. Unsolved
+    states at or past par are terminals no evaluator sees, so the identity closes
+    only if the runner carries their count across from every search."""
+    import torch
+
+    from reckoner.evaluate import model_evaluator
+    from reckoner.model import Reckoner
+
+    cfg = Config()
+    cfg.search.past_par, cfg.search.value_source = past_par, value_source
+    torch.manual_seed(0)
+    evaluator = model_evaluator(Reckoner(cfg).eval(), cfg, 0.0)
+    stats = run_iteration(problems(2, 12), evaluator, cfg, sims=16, m=5, seed=1)
+    stats.check_descent_identity()
+    assert stats.past_par > 0, "no state past par was scored, so the count was not exercised"
+    assert stats.nodes - stats.evaluations == stats.terminals
+    assert stats.episodes_solved + stats.episodes_capped + stats.episodes_stuck == stats.episodes
 
 
 def test_the_identity_is_checked_and_can_fail() -> None:
@@ -262,7 +290,7 @@ def test_resign_fires_when_enabled_and_is_a_distinct_outcome() -> None:
     hide which the policy is doing, so it gets its own counter and the splits
     still sum.
     """
-    cfg = Config()
+    cfg = with_m1_search(Config())
     cfg.par.concede_enabled = True
     cfg.par.concede_k = 0  # resign the moment the line exceeds par
     stats = run_iteration(problems(2, 12), uniform_stub(cfg), cfg, sims=16, m=5, seed=1)
@@ -278,7 +306,7 @@ def test_resign_fires_when_enabled_and_is_a_distinct_outcome() -> None:
 
 @needs_suites
 def test_a_conceded_episode_is_not_counted_as_capped() -> None:
-    cfg = Config()
+    cfg = with_m1_search(Config())
     cfg.par.concede_enabled = True
     cfg.par.concede_k = 0
     stats = run_iteration(problems(2, 12), uniform_stub(cfg), cfg, sims=16, m=5, seed=1)

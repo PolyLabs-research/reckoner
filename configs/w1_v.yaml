@@ -5,6 +5,14 @@
 # tests/test_w1_levers.py::test_the_w1_configs_are_the_brief pins this file's
 # diff against the default to the set WEAK-w1.md registers. Every arm of the
 # round shares these settings; arms B and V add one key each.
+#
+# 2026-11-17, after the round: the ruling on its reading moved the default of
+# `search.past_par`, and may move `search.value_source`. The arms are what the
+# nine runs ran, so every arm now names both keys outright, at its own values,
+# and a test pins each file's fingerprint to the one its runs recorded
+# (test_the_w1_configs_are_what_the_runs_recorded). "The default" in the
+# paragraph above is the default of the day the round was registered: today's
+# with `with_m1_search` applied.
 train:
   rehearsal_frac: 0.0        # no supervised rows: phase1_train holds BFS labels for the deep problems the weak start must not see
   train_steps_per_iter: 200  # half the campaign's, with its schedule shape (half warmup)

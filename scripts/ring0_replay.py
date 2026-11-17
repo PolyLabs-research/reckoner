@@ -35,7 +35,7 @@ from pathlib import Path
 import torch
 
 from reckoner.campaign import ANCHOR, campaign_problems
-from reckoner.config import Config, validate
+from reckoner.config import Config, validate, with_m1_search
 from reckoner.evaluate import model_evaluator
 from reckoner.model import load_checkpoint
 from reckoner.pool import CheckpointPool
@@ -63,7 +63,10 @@ def main() -> int:
     if not replaying and args.out.resolve() == (REPO / "runs" / "ring0_replay").resolve():
         parser.error("a ring searched with a live value head is not ring-0; pass a new --out")
 
-    cfg = Config()
+    # M1's iteration 0 was searched as every round up to WEAK-w1 searched, and the
+    # halt gate below is that iteration's own numbers. The defaults moved on
+    # 2026-11-16; this replay does not.
+    cfg = with_m1_search(Config())
     validate(cfg)
     torch.set_num_threads(args.threads or cfg.campaign.intra_op_threads)
 

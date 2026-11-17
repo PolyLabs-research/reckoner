@@ -33,7 +33,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import git_sha, read_suite, suite_problem, write_record
 from reckoner.episode import Problem, verify
 from reckoner.expr import Expr
@@ -162,7 +162,9 @@ def main() -> int:
     parser.add_argument("--limit", type=int, default=None)
     args = parser.parse_args()
 
-    cfg = Config()
+    # The gate's three evaluators answer (policy, value) and its recorded numbers
+    # were taken under the search that reads that value: the default until 2026-11-16.
+    cfg = with_m1_search(Config())
     state = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
     model = Reckoner(cfg)
     model.load_state_dict(state["state_dict"])

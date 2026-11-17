@@ -31,7 +31,14 @@ from pathlib import Path
 import torch
 
 from reckoner.campaign import ANCHOR, SUITES, eval_profile, run
-from reckoner.config import Config, config_diff, config_fingerprint, load_config, validate
+from reckoner.config import (
+    Config,
+    config_diff,
+    config_fingerprint,
+    load_config,
+    validate,
+    with_m1_search,
+)
 from reckoner.dataset import git_sha, read_suite, sha256_file, suite_problem, write_record
 from reckoner.evaluate import ModelArm
 from reckoner.ladder import paired_bootstrap
@@ -179,7 +186,9 @@ def cmd_baseline(args: argparse.Namespace) -> int:
 
 
 def cmd_reference(args: argparse.Namespace) -> int:
-    cfg = Config()
+    # "Under the merged search", as registered: the default of the day the round
+    # ran, named outright since the defaults moved (2026-11-16).
+    cfg = with_m1_search(Config())
     root = ROOT / "reference"
     rows = read_checkpoint(
         ANCHOR,

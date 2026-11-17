@@ -27,7 +27,7 @@ import pytest
 import torch
 
 from reckoner import search as search_module
-from reckoner.config import POLICY_TARGETS, Config
+from reckoner.config import POLICY_TARGETS, Config, with_m1_search
 from reckoner.dataset import read_suite, sample_indices, suite_problem
 from reckoner.evaluate import model_evaluator
 from reckoner.model import N_RULES, Reckoner, action_index
@@ -45,7 +45,8 @@ from reckoner.search import (
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: `uniform_stub` reports no steps-to-go, so it plays the search that reads 'wdl'.
+CFG = with_m1_search(Config())
 CAP = CFG.episode.step_cap
 
 

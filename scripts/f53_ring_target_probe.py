@@ -40,6 +40,7 @@ import argparse
 import json
 import subprocess
 from collections import Counter
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -271,6 +272,11 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = Config()
+    if hasattr(cfg.search, "value_source"):
+        # The stub reports no steps-to-go, so it plays the search that reads 'wdl':
+        # the default until 2026-11-16. Set by name, not through the helper, because
+        # this probe must still run against trees that predate both keys.
+        cfg = replace(cfg, search=replace(cfg.search, past_par="evaluate", value_source="wdl"))
     head = subprocess.run(
         ["git", "-C", str(REPO), "rev-parse", "HEAD"], capture_output=True, text=True
     )

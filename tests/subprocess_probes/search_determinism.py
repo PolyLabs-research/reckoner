@@ -13,14 +13,15 @@ The caller varies PYTHONHASHSEED and asserts every line is identical.
 import json
 import random
 
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.episode import Problem
 from reckoner.expr import add, eq, mul, num, var
 from reckoner.search import search, uniform_stub
 from reckoner.vocab import GOAL_SOLVE, VAR_X
 
 if __name__ == "__main__":
-    cfg = Config()
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'.
+    cfg = with_m1_search(Config())
     x = var(VAR_X)
     problem = Problem(
         goal=GOAL_SOLVE,

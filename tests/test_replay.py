@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 
 from reckoner.absence import AbsenceError
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.episode import Problem
 from reckoner.replay import (
@@ -31,7 +31,8 @@ from reckoner.search import search, uniform_stub
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: `uniform_stub` reports no steps-to-go, so it plays the search that reads 'wdl'.
+CFG = with_m1_search(Config())
 
 
 def improved_fields(actions=(5, 9), probs=(0.75, 0.25), tail: float = 0.0) -> dict:

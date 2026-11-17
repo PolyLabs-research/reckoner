@@ -29,7 +29,7 @@ import time
 from dataclasses import replace
 from pathlib import Path
 
-from reckoner.config import Config, config_fingerprint, validate
+from reckoner.config import Config, config_fingerprint, validate, with_m1_search
 from reckoner.dataset import git_sha, read_suite, suite_problem, write_record
 from reckoner.runner import run_iteration
 from reckoner.search import uniform_stub
@@ -69,7 +69,9 @@ def main() -> int:
     args = parser.parse_args()
     del args
 
-    cfg = Config()
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'
+    # (the default until 2026-11-16).
+    cfg = with_m1_search(Config())
     validate(cfg)
     cfg = replace(cfg, search=replace(cfg.search, root_noise=False))
     evaluator = uniform_stub(cfg)

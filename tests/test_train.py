@@ -16,7 +16,7 @@ import numpy as np
 import pytest
 import torch
 
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import anchored_data, data_path
 from reckoner.model import Reckoner, crop_to_content
 from reckoner.train import (
@@ -277,7 +277,9 @@ def a_filled_ring(cfg: Config, n: int = 8):
 
     ring = ReplayRing(2048, cfg)
     problems = training_problems(anchored_data("train_100k"), n, seed=0)
-    run_iteration(problems, uniform_stub(cfg), cfg, ring, sims=8, m=5, seed=0)
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'.
+    play = with_m1_search(cfg)
+    run_iteration(problems, uniform_stub(play), play, ring, sims=8, m=5, seed=0)
     return ring
 
 

@@ -1,8 +1,10 @@
 """WEAK-w1's two levers: what the search does past par, and where its value comes from.
 
-Both are config keys that default to the search M1 ran. First gate first (AGENTS
-§5 rider a): each lever is shown doing its central job on a real search, and
-doing nothing at its default.
+Both are config keys. They defaulted to the search M1 ran while the round ran,
+and the past-par rule has become the default since (ruling of 2026-11-16). So
+the base config here is the M1 search, built outright, and each test pulls one
+lever against it. First gate first (AGENTS §5 rider a): each lever is shown doing its
+central job on a real search, and the M1 search is shown without it.
 
 * ``search.past_par = 'loss'`` — an unsolved state at or past par is scored -1.
   Its job: stop an unexplored line outranking a solution once the episode is
@@ -22,7 +24,7 @@ import numpy as np
 import pytest
 import torch
 
-from reckoner.config import PAST_PAR_RULES, VALUE_SOURCES, Config, validate
+from reckoner.config import PAST_PAR_RULES, VALUE_SOURCES, Config, validate, with_m1_search
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.episode import Problem, bfs_par, verify
 from reckoner.evaluate import model_evaluator
@@ -33,7 +35,8 @@ from reckoner.search import SearchStats, _leaf_outcome, _state_value, search, un
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: The search every round up to WEAK-w1's arm A ran: the base each lever is pulled against.
+CFG = with_m1_search(Config())
 
 needs_suites = pytest.mark.skipif(
     not (SUITES / "solve_in_1.jsonl").exists(), reason="suites not generated"
@@ -70,11 +73,15 @@ def one_step_from_solved_with_a_way_to_dawdle() -> tuple[Problem, int]:
 
 
 @pytest.mark.parametrize(
-    ("key", "legal", "default"),
-    [("past_par", PAST_PAR_RULES, "evaluate"), ("value_source", VALUE_SOURCES, "wdl")],
+    ("key", "legal", "was", "default"),
+    [
+        ("past_par", PAST_PAR_RULES, "evaluate", "loss"),
+        ("value_source", VALUE_SOURCES, "wdl", "wdl"),
+    ],
 )
-def test_the_levers_are_validated_both_ways_and_default_to_m1s_search(key, legal, default) -> None:
-    assert getattr(CFG.search, key) == default
+def test_the_levers_are_validated_both_ways_and_default_as_ruled(key, legal, was, default) -> None:
+    assert getattr(CFG.search, key) == was
+    assert getattr(Config().search, key) == default
     for good in legal:
         validate(replace(CFG, search=replace(CFG.search, **{key: good})))
     for bad in ("", "Loss", "value", "step"):
@@ -303,7 +310,7 @@ def test_the_w1_configs_are_the_brief() -> None:
     a, b, v = (load_config(REPO / "configs" / f"w1_{arm}.yaml") for arm in "abv")
     for cfg in (a, b, v):
         validate(cfg)
-    assert config_diff(Config(), a) == {
+    benchmark = {
         "train.rehearsal_frac": (0.65, 0.0),
         "train.train_steps_per_iter": (400, 200),
         "train.lr_warmup_steps": (200, 100),
@@ -313,8 +320,48 @@ def test_the_w1_configs_are_the_brief() -> None:
         "campaign.intra_op_threads": (8, 3),
         "ladder.ladder_every": (5, 99),
     }
+    # Against the default of the day the round was registered, which searched as M1 did.
+    assert config_diff(with_m1_search(Config()), a) == benchmark
     assert config_diff(a, b) == {"search.past_par": ("evaluate", "loss")}
     assert config_diff(b, v) == {"search.value_source": ("wdl", "steps")}
+    # Since the past-par rule became the default, arm B is today's default at the
+    # benchmark's settings, and arm V is that plus the steps-head value.
+    assert config_diff(Config(), b) == benchmark
+    assert config_diff(Config(), v) == benchmark | {"search.value_source": ("wdl", "steps")}
+
+
+def test_the_w1_configs_are_what_the_runs_recorded() -> None:
+    """A default moved after the round. Each arm file still loads as the config
+    its three runs ran: its fingerprint, at each seed, is the one every row of
+    that run's ``iterations.jsonl`` carries. A default that moves must not
+    rewrite what a completed run was measured at."""
+    import json
+
+    from reckoner.config import config_fingerprint, load_config
+
+    for arm in "ABV":
+        cfg = load_config(REPO / "configs" / f"w1_{arm.lower()}.yaml")
+        for seed in (42, 43, 44):
+            rows = [
+                json.loads(line)
+                for line in (REPO / "runs" / "w1" / f"{arm}-{seed}" / "iterations.jsonl")
+                .read_text()
+                .splitlines()
+                if line.strip()
+            ]
+            assert len(rows) == 10
+            assert {row["config_fingerprint"] for row in rows} == {
+                config_fingerprint(replace(cfg, seed=seed))
+            }, f"configs/w1_{arm.lower()}.yaml no longer loads as the config run {arm}-{seed} ran"
+        # The starting network's own reading under this arm's search, at the registered seed.
+        baseline = json.loads(
+            (REPO / "runs" / "w1" / "baseline" / arm / "reading_result.json").read_text()
+        )
+        assert baseline["config_fingerprint"] == config_fingerprint(cfg)
+    # The Phase-1 anchor's reference reading: "under the merged search", which was
+    # the default that day and is `with_m1_search` today.
+    reference = json.loads((REPO / "runs" / "w1" / "reference" / "reading_result.json").read_text())
+    assert reference["config_fingerprint"] == config_fingerprint(with_m1_search(Config()))
 
 
 def test_the_w1_readings_count_at_par_and_pair_by_problem() -> None:

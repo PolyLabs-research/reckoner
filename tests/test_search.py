@@ -3,6 +3,13 @@
 The backup test is written first and stands first, because the port's sharpest
 hazard is silent: a tree that negates per ply, or averages where it should
 maximise, still returns plausible numbers.
+
+**Which search.** Everything down to the last section plays ``uniform_stub``
+under the search chunk 7's gates were measured with, built outright as ``CFG``:
+no past-par rule, and the stub's own value read as given. WEAK-w1 added two
+levers to the search (the past-par rule, the default since 2026-11-17, and the
+steps-head value). The last section runs the same mechanics under each, on a
+real network, because the stub reports no steps-to-go.
 """
 
 from __future__ import annotations
@@ -17,17 +24,18 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from reckoner.config import Config
+from reckoner.config import Config, with_m1_search
 from reckoner.dataset import read_suite, suite_problem
 from reckoner.episode import Problem
 from reckoner.expr import add, eq, mul, num, var
-from reckoner.gates import search_found_a_solve
+from reckoner.gates import descent_identity_holds, search_found_a_solve
 from reckoner.search import _backup, _Tree, run_batched, search, uniform_stub
 from reckoner.vocab import GOAL_SOLVE, VAR_X
 
 REPO = Path(__file__).resolve().parents[1]
 SUITES = REPO / "runs" / "suites"
-CFG = Config()
+#: The search chunk 7 measured: the stub's value is read as given ('wdl').
+CFG = with_m1_search(Config())
 X = var(VAR_X)
 
 PROBLEM = Problem(
@@ -333,7 +341,7 @@ def test_the_tree_deepens_past_one_ply() -> None:
 
 def test_two_seeds_give_identical_results_in_the_eval_profile() -> None:
     """The plan's 2-seed identity: with root noise off, the draw cannot matter."""
-    cfg = Config()
+    cfg = with_m1_search(Config())
     cfg.search.root_noise = False
     evaluator = uniform_stub(cfg)
     a = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(1), sims=16, m=5)
@@ -344,7 +352,7 @@ def test_two_seeds_give_identical_results_in_the_eval_profile() -> None:
 
 def test_root_noise_actually_varies_the_search() -> None:
     """Both polarities: if the seed never mattered, the identity above is vacuous."""
-    cfg = Config()
+    cfg = with_m1_search(Config())
     assert cfg.search.root_noise is True
     evaluator = uniform_stub(cfg)
     seen = {
@@ -389,7 +397,7 @@ def test_an_over_long_state_is_a_counted_terminal_loss_not_a_crash() -> None:
     stub rollout (FINDINGS.md F-05), so the counter is in SearchStats from
     field one.
     """
-    cfg = Config()
+    cfg = with_m1_search(Config())
     cfg.model.seq_len = 26  # the start state fits; one add_both_sides does not
     evaluator = uniform_stub(cfg)
     result = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(3), sims=24, m=5)
@@ -430,3 +438,94 @@ def test_a_root_with_no_legal_action_returns_cleanly() -> None:
     assert result.chosen is None and result.actions == []
     assert result.stats.terminal_no_actions == 1
     assert result.stats.sims_used == 0, "an empty root spends nothing"
+
+
+# ---------------------------------------------------------------------------
+# WEAK-w1's two levers: the same mechanics with each pulled
+# ---------------------------------------------------------------------------
+# ``bound`` is the past-par rule alone, which is ``Config()`` as it stands;
+# ``steps`` adds the steps-head value. The evaluator is a real network at random
+# weights: under ``'steps'`` the search needs a steps-to-go with every answer,
+# and the stub has none to give.
+
+LEVERS = {"bound": ("loss", "wdl"), "steps": ("loss", "steps")}
+
+
+def _with_levers(name: str):
+    """One of WEAK-w1's searches in the measurement profile, and a network to play it."""
+    import torch
+
+    from reckoner.evaluate import model_evaluator
+    from reckoner.model import Reckoner
+
+    cfg = Config()
+    cfg.search.past_par, cfg.search.value_source = LEVERS[name]
+    cfg.search.root_noise = False
+    torch.manual_seed(0)
+    return cfg, model_evaluator(Reckoner(cfg).eval(), cfg, 0.0)
+
+
+def test_the_default_search_is_the_past_par_rule_alone() -> None:
+    cfg = Config()
+    assert (cfg.search.past_par, cfg.search.value_source) == LEVERS["bound"]
+
+
+@pytest.mark.parametrize("lever", sorted(LEVERS))
+@pytest.mark.parametrize("sims", [6, 31, 48])
+def test_the_levered_search_keeps_its_budget_and_its_books(lever: str, sims: int) -> None:
+    """Budget identity and the descent identity, with the past-par terminals in it."""
+    cfg, evaluator = _with_levers(lever)
+    result = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(7), sims=sims, m=5)
+    assert result.stats.sims_requested == sims
+    assert result.stats.sims_used <= sims
+    assert int(result.visits.sum()) == result.stats.sims_used
+    assert descent_identity_holds(result)
+    assert result.values.min() >= -1.0 and result.values.max() <= 0.0, "exact par has no +1"
+
+
+@pytest.mark.parametrize("lever", sorted(LEVERS))
+def test_the_levered_search_scores_states_past_par_and_counts_them(lever: str) -> None:
+    """The rule's central job on a whole search: with enough budget on a par-3
+    problem the tree reaches depth 3 unsolved, and those nodes are terminals the
+    evaluator never sees. Without the count the descent identity would not close."""
+    cfg, evaluator = _with_levers(lever)
+    result = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(7), sims=48, m=16)
+    assert result.stats.past_par > 0, "no state past par was reached, so nothing was tested"
+    assert result.stats.max_depth <= PROBLEM.par, "the search expanded below a certain loss"
+    assert descent_identity_holds(result)
+
+
+@pytest.mark.parametrize("lever", sorted(LEVERS))
+@pytest.mark.parametrize(("m", "sims"), [(3, 31), (5, 16), (16, 48)])
+def test_the_levered_search_agrees_with_itself_batched(lever: str, m: int, sims: int) -> None:
+    """Sequential against batched, odd pairs included. The batch crops to its own
+    longest state, so a row can be padded differently from run to run: priors
+    and values agree to rounding, the decisions exactly."""
+    cfg, evaluator = _with_levers(lever)
+    problems = [PROBLEM] * 3
+    sequential = [
+        search(p, p.expr, evaluator, cfg, random.Random(20 + i), sims=sims, m=m)
+        for i, p in enumerate(problems)
+    ]
+    batched = run_batched(
+        [(p, p.expr, random.Random(20 + i)) for i, p in enumerate(problems)],
+        evaluator,
+        cfg,
+        sims=sims,
+        m=m,
+        batch_size=2,
+    )
+    for a, b in zip(sequential, batched, strict=True):
+        assert np.array_equal(a.visits, b.visits), f"visit parity failed at m={m} sims={sims}"
+        assert np.allclose(a.values, b.values, atol=1e-5)
+        assert a.chosen == b.chosen
+        assert a.stats.as_dict() == b.stats.as_dict()
+
+
+@pytest.mark.parametrize("lever", sorted(LEVERS))
+def test_the_levered_search_ignores_the_seed_in_the_eval_profile(lever: str) -> None:
+    cfg, evaluator = _with_levers(lever)
+    a = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(1), sims=16, m=5)
+    b = search(PROBLEM, PROBLEM.expr, evaluator, cfg, random.Random(999), sims=16, m=5)
+    assert np.array_equal(a.visits, b.visits)
+    assert a.chosen == b.chosen

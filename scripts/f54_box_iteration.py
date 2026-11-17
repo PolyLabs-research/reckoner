@@ -31,7 +31,7 @@ from pathlib import Path
 
 import torch
 
-from reckoner.config import Config, config_fingerprint
+from reckoner.config import Config, config_fingerprint, with_m1_search
 from reckoner.dataset import read_suite, sample_indices, suite_problem
 from reckoner.model import IllegalTargetError, load_checkpoint
 from reckoner.replay import ReplayRing
@@ -58,7 +58,9 @@ def main() -> int:
     args = parser.parse_args()
     torch.set_num_threads(args.threads)
 
-    cfg = Config()
+    # The stub reports no steps-to-go, so it plays the search that reads 'wdl'
+    # (the default until 2026-11-16).
+    cfg = with_m1_search(Config())
     if args.policy_target is not None:
         cfg = replace(cfg, train=replace(cfg.train, policy_target=args.policy_target))
 

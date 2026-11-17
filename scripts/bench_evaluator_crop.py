@@ -75,13 +75,16 @@ def main() -> int:
         widths.append(max(e.length for e in encoded))
         t0 = time.perf_counter()
         with torch.no_grad():
-            policy, value_logits, _ = model(tokens, sites)
+            policy, value_logits, steps = model(tokens, sites)
             probs = torch.softmax(value_logits, dim=1)
             expected = (probs[:, 0] - probs[:, 2]).tolist()
         padded_s += time.perf_counter() - t0
-        for slot, (prior, value) in enumerate(got):
+        # Under the default search the evaluator also reports the steps-to-go, and
+        # the crop must leave that bit for bit alone as well.
+        for slot, (prior, value, *to_go) in enumerate(got):
             same = np.array_equal(prior, policy[slot].numpy().astype(np.float32))
-            identical += int(same and value == float(expected[slot]))
+            same = same and value == float(expected[slot])
+            identical += int(same and to_go == [float(steps[slot])][: len(to_go)])
 
     row = {
         "bench": "evaluator_crop",
