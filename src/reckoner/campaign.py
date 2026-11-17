@@ -77,52 +77,84 @@ from reckoner.vocab import VOCAB_VERSION
 REPO = Path(__file__).resolve().parents[2]
 SUITES = REPO / "runs" / "suites"
 
-# --- the two fingerprints. MOVED TWICE since M1, one key each time ------------
-# 1. `campaign.device` (2026-08-22, after F-51):  ccfec081f4eb1604… / fd53b63f7502a4b1…
-# 2. `train.policy_target` at 'improved', the Gumbel π′ target (F-54, 2026-11-10):
-#    the pair pinned below.
-# A test proves each move was exactly its key: deleting `train.policy_target`
-# from today's config recovers pair 1, and deleting `campaign.device` as well
-# recovers M1's. REGISTERED BY NO PREREG YET — M1 is closed, and the next
-# campaign's PREREG records the pinned pair before launch.
+# --- the two fingerprints, and every pair they have been --------------------
+# The pin is what THIS code computes from the default config. It moves each time
+# a config key is added, once per key, and `FINGERPRINT_HISTORY` below records
+# every pair it has been, oldest first, with the key whose addition moved it on.
+# A test walks the chain backwards: starting from today's config, deleting those
+# keys one at a time recovers each recorded pair exactly, down to M1's. So every
+# move was exactly its key, and nothing else has moved since M1.
 #
-#   M1 (closed; PREREG-m1 §M1-A2 §1, moved by M1-A4):
-#       8443847bb8c41218… / c8aa1fccd1c97dd8…  — kept as M1_ERA_FINGERPRINTS
-#       below for the scripts that verify M1's own rows.
+# REGISTERED BY NO PREREG YET — M1 is closed, and the next campaign's PREREG
+# records the pinned pair before launch.
 #
-# M1-A4 moved the campaign config ONCE, carrying every decision on that page:
-# rehearsal_frac 0.0 -> 0.65, the two `ladder.sympy_*` deletions, and three role
-# changes at unchanged value (interop EXERCISED, problems_per_pass as the
-# population cap, snapshot_every honoured). The batching rule exists so a
-# fingerprint moves once with a page explaining all of it.
+# Before the chain begins: M1-A4 moved the campaign config ONCE, carrying every
+# decision on that page: rehearsal_frac 0.0 -> 0.65, the two `ladder.sympy_*`
+# deletions, and three role changes at unchanged value (interop EXERCISED,
+# problems_per_pass as the population cap, snapshot_every honoured). The
+# batching rule exists so a fingerprint moves once with a page explaining all of
+# it.
 #
 #   was ce41af96ee85f0a2… / 314fbeb99b6640f6…  (through the rehearsal and
 #                                               the equivalence gate)
 # The driver runs TWO profiles and therefore makes TWO assertions, each pinned
 # where its profile acts (D-A2 §2). A single startup check would compare one
 # profile's value against a run that also uses the other.
-CAMPAIGN_FINGERPRINT = "1a2f3aade5823b92c4a839070513e0d8d3461340ce030f8c9d6056e40292436a"
-EVAL_FINGERPRINT = "15f63cc21b4e008103d7f4d6b7947f050392061f8a8e3af099e892ca6428ef15"
+CAMPAIGN_FINGERPRINT = "16c1776ead71822fa19a670eb25d1edfca2373e2e3927d3706a40d4f8d857185"
+EVAL_FINGERPRINT = "fb7ba396bee3e77ed8f87c22bf77c834ada2ea6951e61e5b14ba5f926d8b2310"
 
-#: The values M1 ACTUALLY RAN UNDER, kept because they are quoted on pages and a
-#: pin that moves must not silently rewrite what a completed run was measured at.
-#: The pin above is what THIS code computes; the era below is what M1 recorded.
+#: Every pair the door pinned before today's, oldest first. ``then_added`` is the
+#: config key whose ADDITION, at its default, moved the pin to the next pair (the
+#: last entry's moved it to the pair pinned above). Literals, never recomputed:
+#: no dataclass can represent an earlier era's config any more, and a pin that
+#: moves must not rewrite what a completed run was measured at.
+FINGERPRINT_HISTORY = (
+    {
+        "era": "M1",
+        "campaign": "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d",
+        "eval": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+        "then_added": "campaign.device",
+        "when": "fingerprinted 2026-08-22 after F-51",
+    },
+    {
+        "era": "device",  # no campaign ran under it
+        "campaign": "ccfec081f4eb16040c5587cc738e0f1c4ccbce0fcaad0e56eb3c55aa08ebb5f6",
+        "eval": "fd53b63f7502a4b106461ab1ce1f1fbab982e5d3df2ff5a07bc941c5760912de",
+        "then_added": "train.policy_target",
+        "when": "added 2026-11-10 by F-54",
+    },
+    {
+        "era": "policy-target",  # SWEEP-m2 and SWEEP-m3 ran under it
+        "campaign": "1a2f3aade5823b92c4a839070513e0d8d3461340ce030f8c9d6056e40292436a",
+        "eval": "15f63cc21b4e008103d7f4d6b7947f050392061f8a8e3af099e892ca6428ef15",
+        "then_added": "search.past_par",
+        "when": "added 2026-11-16 as WEAK-w1's first lever, at the default M1 ran",
+    },
+    {
+        "era": "past-par",  # nothing ran under it: the two levers landed together
+        "campaign": "e7f7347faa38151706599b857192cf6b791580c3db99cec51e6396930f0e71ed",
+        "eval": "3aefe8743738f7a5a78fd8300a00125a8710d3bb23a9935fa5b0f2e938785be2",
+        "then_added": "search.value_source",
+        "when": "added 2026-11-16 as WEAK-w1's second lever, at the default M1 ran",
+    },
+)
+
+#: The values M1 ACTUALLY RAN UNDER, under the name the pages and scripts use.
+#: One literal (in the history above), two names.
 M1_ERA_FINGERPRINTS = {
-    "campaign": "8443847bb8c41218dc93a13b4401929ef2151bec3e7947041cfed99ea9903c6d",
-    "eval": "c8aa1fccd1c97dd84aa5d636356a7a54d08302146324bd9e43319f4dd2599e10",
+    "campaign": FINGERPRINT_HISTORY[0]["campaign"],
+    "eval": FINGERPRINT_HISTORY[0]["eval"],
     "_moved_by": "campaign.device, fingerprinted 2026-08-22 after F-51",
 }
 
-#: The pair between the two moves: M1's config plus `campaign.device`, before
-#: F-54 added `train.policy_target`. No campaign ran under it. Kept because the
-#: one-key proof needs both ends of each move as literals, never recomputed.
+#: The pair between the first two moves: M1's config plus `campaign.device`.
 DEVICE_ERA_FINGERPRINTS = {
-    "campaign": "ccfec081f4eb16040c5587cc738e0f1c4ccbce0fcaad0e56eb3c55aa08ebb5f6",
-    "eval": "fd53b63f7502a4b106461ab1ce1f1fbab982e5d3df2ff5a07bc941c5760912de",
+    "campaign": FINGERPRINT_HISTORY[1]["campaign"],
+    "eval": FINGERPRINT_HISTORY[1]["eval"],
     "_moved_by": "train.policy_target, added 2026-11-10 by F-54",
 }
 
-#: M1's pair under the names the M1-era scripts import. One literal, two names.
+#: M1's pair under the names the M1-era scripts import.
 M1_CAMPAIGN_FINGERPRINT = M1_ERA_FINGERPRINTS["campaign"]
 M1_EVAL_FINGERPRINT = M1_ERA_FINGERPRINTS["eval"]
 
@@ -340,9 +372,9 @@ def assert_eval_profile(cfg: Config) -> str:
         raise CampaignRefusal(
             f"eval profile fingerprint {got} != the pinned {EVAL_FINGERPRINT}; "
             f"this pass is not comparable to its baseline. (M1 ran under "
-            f"{M1_ERA_FINGERPRINTS['eval']}; the pin moved when "
-            f"{M1_ERA_FINGERPRINTS['_moved_by']}, and again when "
-            f"{DEVICE_ERA_FINGERPRINTS['_moved_by']}.)"
+            f"{M1_ERA_FINGERPRINTS['eval']}; the pin has moved {len(FINGERPRINT_HISTORY)} "
+            "times since, once for each key added: "
+            f"{', '.join(era['then_added'] for era in FINGERPRINT_HISTORY)}.)"
         )
     return got
 

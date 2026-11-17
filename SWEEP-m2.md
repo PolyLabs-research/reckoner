@@ -353,3 +353,17 @@ batches, no skips.
 
 The record is `runs/sweep_m2.json`, `followup`. The table above it is
 unchanged.
+
+---
+
+## Comparands
+
+*Declared 2026-11-15: the page shipped without this block.*
+
+- `runs/sweep_m2.json`
+- `runs/ring0_replay/ring-0`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

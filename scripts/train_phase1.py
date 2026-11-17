@@ -125,6 +125,13 @@ def main() -> int:
     parser.add_argument("--init-weights", type=Path, default=None)
     parser.add_argument("--data", type=Path, default=anchored_data("phase1_train"))
     parser.add_argument("--eval", type=Path, default=anchored_data("phase1_eval"))
+    parser.add_argument(
+        "--max-depth",
+        type=int,
+        default=None,
+        help="train only on rows from problems of at most this depth: a weak starting "
+        "network (WEAK-w1.md). Default: every row, which is the Phase-1 anchor's recipe.",
+    )
     args = parser.parse_args()
 
     if args.steps > MAX_STEPS:
@@ -157,6 +164,7 @@ def main() -> int:
                 "seed": args.seed,
                 "device": args.device,
                 "data": str(args.data.name),
+                "max_depth": args.max_depth,
                 "data_digests": json.loads((args.data / "meta.json").read_text())["digests"],
             },
             indent=2,
@@ -166,6 +174,8 @@ def main() -> int:
     )
 
     data = SupervisionSet(args.data)
+    if args.max_depth is not None:
+        data = data.up_to_depth(args.max_depth)
     model = Reckoner(cfg)
     if args.init_weights is not None:
         state = torch.load(args.init_weights, map_location="cpu", weights_only=False)

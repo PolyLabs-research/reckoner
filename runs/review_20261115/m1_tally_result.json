@@ -1,0 +1,21 @@
+{
+  "deep_scripted_anchor": {
+    "mean_steps": 8.44,
+    "problems": 600,
+    "solved": 588
+  },
+  "deep_scripted_m1_final": {
+    "mean_steps": 8.13,
+    "problems": 600,
+    "solved": 594
+  },
+  "m1_self_play_episodes": 8000,
+  "m1_self_play_outcomes": {
+    "+1": 39,
+    "-1": 169,
+    "0": 7792
+  },
+  "m1_value_switch_abstained": 20,
+  "m1_value_switch_fired": 0,
+  "m1_value_switch_rows": 20
+}

@@ -187,3 +187,23 @@ evidence each round was decided on, not the ruleset itself.*
 a path-shaped string absent from this list is flagged by the sweep's lint.
 Prose-only citations are uncatchable by machine — if a sentence rests on an
 artifact, the artifact goes in this block.*
+
+---
+
+## ROUND-04 — The weak-start benchmark, the past-par rule, and the steps-head value
+
+**Registered:** 2026-11-16, on its own page: **`WEAK-w1.md`**.
+**Status:** registered there, with its arms, predictions and branches; this
+entry is the registry's pointer to it.
+
+Two levers, each a config key that defaults to the search M1 ran, each tested
+against the arm before it from a starting network supervised only on problems
+of depth ≤ 3:
+
+| lever | key | arm |
+|---|---|---|
+| an unsolved state at or past par is scored as a loss | `search.past_par: loss` | B against A |
+| the search reads its value off the steps head, against par | `search.value_source: steps` | V against B |
+
+**Kill conditions** are WEAK-w1 §6's gates: P3 and P4 for the first lever, P5
+and P6 for the second. A lever whose gates fail keeps its default.

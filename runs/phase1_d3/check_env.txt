@@ -1,0 +1,7 @@
+python      : 3.12.3 (/root/reckoner/.venv/bin/python)
+torch       : 2.13.0+cpu
+build       : cpu
+accelerator : no (CPU)
+device      : cpu
+threads     : 32
+matmul 2048^3 : 0.64 TFLOP/s fp32 on cpu

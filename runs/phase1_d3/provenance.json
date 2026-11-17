@@ -1,0 +1,17 @@
+{
+  "config_fingerprint": "16c1776ead71822fa19a670eb25d1edfca2373e2e3927d3706a40d4f8d857185",
+  "data": "phase1_train",
+  "data_digests": {
+    "action": "c18b37f569cf8d7843e2eecc81b5cb65f4120471d673af5bdad15ef93385a8a1",
+    "depth": "f1bf90d23801651baf387c6e8edc5158c53bbb8239a07b1ddde28374419e5312",
+    "goal": "7e33ac6793efe8b330ffe68a0b1b2372272fcdd2538e1bab60e2bbffa7823f58",
+    "lengths": "d758f37696b07810a456954b8aa3c3ec01d6a7bae46fccf0736f5f1126bd61aa",
+    "steps_remaining": "ba034269c447511551e00829e0edb066672c54b3385bbf2658cdefdc079f8524",
+    "tokens": "18e7d853acb6f4d106fd7e20acc00c35ac7f00beb34da2a6c5cdfa265f3264de"
+  },
+  "device": "cpu",
+  "git_sha": "ce6c2127a39da7d2a45243a73a9aff6984c2b935",
+  "max_depth": 3,
+  "seed": 0,
+  "steps_requested": 3000
+}

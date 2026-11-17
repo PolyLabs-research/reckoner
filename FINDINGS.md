@@ -4062,3 +4062,160 @@ rehearsal to decide (`SWEEP-m1a4.md` §3.1).
 `f = 0.15` is not established; its seeds read 1192, 1190 and 1136. A
 `'visits'` run reproduced bit for bit across two CPU models (EPYC 9575F and
 4564P) on the same torch build.
+
+---
+
+## F-58 — Self-play paid for the 512-token envelope on every evaluation; the crop that removes it changes no bit
+
+**Found:** 2026-11-15, while sizing what an exploration (AGENTS §7.1) could
+afford. Fixed the same day.
+
+**The defect is F-07's, on the path F-07 did not reach.** `encode` pads every
+state to `model.seq_len` (512). F-07 found Phase 1 training paying for that
+envelope and added the crop to the two batch builders in `train.py`. The search
+evaluator (`evaluate.model_evaluator`) kept stacking the padded tokens, so every
+leaf of every search, in self-play and in every instrument pass, ran the trunk
+over 512 positions for states that are mostly under 64 tokens long.
+
+### Measured
+
+| reading | result |
+|---|---|
+| one forward pass, 128 states, 8 CPU threads: content width (57) / padded (512) | 284 ms / 5,743 ms, **20.2×** |
+| the same on the box's GPU | 61 ms / 619 ms, 10.1× |
+| the evaluator on 192 real search states (ring-V), 2 threads: cropped / padded | 0.52 s / 9.80 s, **18.8×** (`scripts/bench_evaluator_crop.py`, logged in `benchmarks/results.jsonl`) |
+| those 192 states: policy rows and values, cropped against padded | **192 / 192 bit-identical** |
+
+The first two rows were timed while the box was running other jobs, so they are
+indicative. The ratio, not the milliseconds, is the reading.
+
+### The fix, and its gates
+
+`crop_to_content` moved from `train.py` to `model.py` and the evaluator now uses
+it. Nothing else changed. The crop is exact for the reason its docstring gives:
+the trunk masks PAD, the pooling masks PAD, and positions are indexed from zero.
+
+| gate | result |
+|---|---|
+| `test_the_evaluator_crops_its_batch_and_changes_no_bit`: the crop fires (width < 512) and every policy row and value equals the full-width forward pass, bit for bit | passes |
+| **Ring-0 replay.** `scripts/ring0_replay.py` with the cropped evaluator, on 2 threads, against the ring written on 2026-11-11 by the padded evaluator on 8 threads | **byte-identical: ring digest `4ff19a7d…` both; 398 / 400 solved, 99 pool-par, 1,305 rows** |
+| replay wall clock | **61 s on 2 threads.** The 2026-11-11 replay on 8 threads was not timed by the script; the session that ran it waited about 35 minutes |
+
+So the change is invisible to every recorded number: the same episodes, the same
+ring, the same targets. The replay gate also shows, as one instance, that this
+ring does not depend on the intra-op thread count (2 against 8) on this build.
+
+### What it means for the record
+
+- **Every wall-clock number recorded before this commit is a number for the
+  padded evaluator.** M1's 9.6 hours, F-27's cost model, the cadence-unit times
+  and F-51's CPU reading all include it. None is re-measured here, and none is
+  edited.
+- The campaign's cost was mostly this. A campaign iteration that took minutes
+  of self-play should now take seconds; that is a prediction until a campaign
+  runs.
+
+### Also added, and not licensed for measurement
+
+`model_evaluator` takes `device` (default `"cpu"`, which is what the campaign
+passes). No GPU is licensed as a measurement device: `pyproject.toml` keeps the
+`cuda` extra "registered and deferred" and F-12's equivalence gate was for one
+box. The argument exists so an exploration can use a GPU without a second
+evaluator existing beside this one.
+
+---
+
+## F-59 — The search scored a certain loss as level and read no value at all; told both, the loop takes a shallow network to the supervised one's level
+
+**Measured:** 2026-11-16, `WEAK-w1.md` (registered and approved before any arm
+ran; one attempt, complete), `runs/w1/weak_w1_result.json`. Nine runs through
+`campaign.run` from a starting network supervised only on problems of depth
+≤ 3, read with the campaign's own no-regress instrument on the six exact-par
+suites (1,200 problems). All seven registered predictions hold.
+
+### The two things
+
+Both are properties of the merged search while the value head is silent, which
+it was for all of M1 and in all nine runs here (the switch fired in none).
+
+1. **A state at or past par, unsolved, was handed to the evaluator and came
+   back worth 0.** Its z is −1 whatever follows. A solution found past par is
+   worth −1 exactly, so past par the search ranked every unexplored line above
+   solving. Episodes that slipped over par then wandered to the cap, and the
+   ring trained on them.
+2. **Every unproven state was worth 0.** The search could tell a good move from
+   a bad one only by exhausting everything beneath the bad one, which 48
+   simulations manage about two plies from the end. Meanwhile the steps head,
+   trained since Phase 1 and never read by the search, predicts the distance to
+   a solution.
+
+Each is shown on a real search by a unit test written before the round:
+`test_past_par_the_merged_search_ranks_an_unexplored_line_above_a_solution` and
+`test_value_source_steps_refutes_a_bad_move_at_first_sight`.
+
+### Measured
+
+At par over the 1,200 suite problems; three seeds per arm.
+
+| | policy alone | with search |
+|---|---:|---:|
+| the starting network (never saw a problem deeper than 3) | 722 | 841 |
+| A — the loop as merged, ten iterations | 729, 730, 795 | 739, 746, 809 |
+| B — A + an unsolved state at or past par is a loss | 847, 852, 853 | 856, 859, 872 |
+| V — B + the search reads its value off the steps head | **1175, 1143, 1156** | **1200, 1200, 1200** |
+| the Phase-1 anchor (supervised on every depth) | 1176 | 1193 |
+
+- **A damages what the network knew.** On depths 1–3 it ends 27 to 77 problems
+  below the starting network, and its search does not get them back.
+- **B does not.** 0, 1 and 0 problems below. B − A over all 1,200: +0.083, CI
+  [+0.072, +0.094].
+- **V reaches the deep problems.** On depths 5–6 the policy alone is at par on
+  348 to 380 of 400, where B's is on 52 to 58. V − B there: +0.768, CI [+0.738,
+  +0.796].
+- **V with search is at par on every problem of every suite, in every seed.**
+  The supervised anchor with search misses 7.
+
+No BFS action label for a problem deeper than 3 reached any of these networks.
+What they were given is what every network here is given: each training
+problem's par.
+
+### What this changes in the record
+
+- **The loop works when its search has a value.** The spec's thesis (search
+  against a checker, improved-policy targets, no brute-force pretraining) is
+  shown at its smallest scale: from depth ≤ 3 to the whole depth ≤ 6 band in
+  2,000 self-play episodes.
+- **M1 ran with both defects.** Its value switch never fired, so its search
+  read 0 for every unproven state for twenty iterations. Its +108 on the
+  primary was achieved by a loop whose search could refute a move only by
+  exhaustion.
+- **The forgetting this project has chased has a third cause on the record.**
+  F-37 attributed it to training on the ring; F-56 showed it grows with steps
+  and learning rate under `'visits'`; here, under `'improved'` with no
+  rehearsal at all, it is present in arm A and absent in arm B, and the only
+  difference is how the search scores a state past par. F-56 and F-57 were
+  read under the merged search. Whether the past-par rule changes them is not
+  measured.
+- **REVIEW-2026-11-15's step 2 was not the lever.** The exploration that
+  preceded this round saw no effect from repairing the steps target or
+  switching the value loss off (WEAK-w1 §2, not evidence). The review ranked
+  them above the search. The measurement ranks them below it.
+
+### What it does not show
+
+- Anything from the Phase-1 anchor. These suites cannot show it: that anchor
+  already plays 1,176 of them at par.
+- Anything past depth 6, on other rule sets, or over more than ten iterations.
+- That either default should move. Both keys still default to the search M1
+  ran. Moving them is the principal's ruling, proposed on the page.
+
+### Registered, not done
+
+- The root itself is still evaluated when it is at or past par; only the
+  states the search creates below it are scored as losses.
+- The steps head still trains on rows from unsolved episodes.
+- The value's ceiling is +1 against any par that is not BFS-exact. Here that
+  was the league's fifth of episodes; on scripted strata it would be all of
+  them.
+- A benchmark with headroom above depth 6, without which the next campaign
+  cannot be read either.

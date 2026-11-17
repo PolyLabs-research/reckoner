@@ -273,3 +273,18 @@ all three seeds hold is the smallest one offered.
 - Whether the campaign should use `f = 0.00` is decided by the campaign's own
   cadence (`SWEEP-m1a4.md` §3.1: the band screens, the cadence decides), not by
   this table.
+
+---
+
+## Comparands
+
+*Declared 2026-11-15: the page shipped without this block.*
+
+- `runs/sweep_m3.json`
+- `runs/sweep_m2.json`
+- `runs/ring_v/ring-0`
+
+*Declared, not extracted (F-44). An artifact this page relies on belongs here;
+a path-shaped string absent from this list is flagged by the sweep's lint.
+Prose-only citations are uncatchable by machine — if a sentence rests on an
+artifact, the artifact goes in this block.*

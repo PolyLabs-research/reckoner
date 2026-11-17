@@ -1,0 +1,54 @@
+{
+  "checkpoint": "runs/w1/V-43/ckpt-9.pt",
+  "checkpoint_sha256": "7bccd8ddc4f8d7d70d41326724d3315b125aa10943390512cc3e5b334419ff71",
+  "config_diff_from_default": {
+    "campaign.episodes_per_iteration": [
+      400,
+      200
+    ],
+    "campaign.intra_op_threads": [
+      8,
+      3
+    ],
+    "campaign.iterations": [
+      20,
+      10
+    ],
+    "ladder.ladder_every": [
+      5,
+      99
+    ],
+    "search.past_par": [
+      "evaluate",
+      "loss"
+    ],
+    "search.value_source": [
+      "wdl",
+      "steps"
+    ],
+    "seed": [
+      42,
+      43
+    ],
+    "train.lr_warmup_steps": [
+      200,
+      100
+    ],
+    "train.rehearsal_frac": [
+      0.65,
+      0.0
+    ],
+    "train.replay_capacity": [
+      500000,
+      60000
+    ],
+    "train.train_steps_per_iter": [
+      400,
+      200
+    ]
+  },
+  "config_fingerprint": "d44ee0f89097a0f22ac23e242c70e7da1ef222533034a33730475573fe4b2890",
+  "git_sha": "ce6c2127a39da7d2a45243a73a9aff6984c2b935",
+  "rows": 2400,
+  "torch": "2.13.0+cpu"
+}

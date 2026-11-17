@@ -39,9 +39,16 @@ from torch import nn
 from reckoner.config import Config
 from reckoner.dataset import anchored_data, anchored_path, sample_indices
 from reckoner.episode import Problem, decode_state
-from reckoner.model import N_RULES, Reckoner, StateTooLarge, encode, policy_loss, steps_loss
+from reckoner.model import (
+    N_RULES,
+    Reckoner,
+    StateTooLarge,
+    crop_to_content,
+    encode,
+    policy_loss,
+    steps_loss,
+)
 from reckoner.valuegate import ValueHeadState, value_contribution
-from reckoner.vocab import PAD
 
 
 @dataclass
@@ -150,37 +157,50 @@ class SupervisionSet:
     def __len__(self) -> int:
         return int(self.meta["n"])
 
+    def up_to_depth(self, max_depth: int) -> DepthLimited:
+        """The rows from problems of depth at most ``max_depth``: a weak start's diet."""
+        return DepthLimited(self, max_depth)
 
-def _crop_to_content(tokens: torch.Tensor, site_positions: torch.Tensor) -> torch.Tensor:
-    """Drop trailing all-PAD columns. **Exact, not approximate** — and measured.
 
-    ``encode`` pads every state to ``model.seq_len`` (512), sized in chunk 6 from
-    the *reachable*-state distribution, because Phase 2 self-play can grow states
-    past 295 tokens (F-05). Phase 1 supervision states are all on BFS-optimal
-    derivations, and optimal derivations never apply ``add_both_sides``
-    (ROUND-01), so the whole 313,628-example set has ``max_len 64``. Eight times
-    the width, and attention is O(L²).
+class DepthLimited:
+    """The rows of a supervision set whose PROBLEM depth is at most ``max_depth``.
 
-    Cropping changes nothing the network computes: the trunk already ignores PAD
-    via ``src_key_padding_mask``, ``_masked_mean`` pools over ``ne(PAD)``, and
-    positions are indexed from 0 by ``arange``, so rows 0..width-1 of the
-    position table are the same rows either way. That equality is pinned as an
-    exact tensor identity by ``test_cropping_padding_is_exact``, both polarities:
-    the crop must fire *and* the outputs must be bit-identical.
+    A view :func:`make_batch` and :func:`train` read in place of the full set, for
+    training a starting network that has never seen a deeper problem.
 
-    **Do not "fix" this by lowering ``model.seq_len``.** The envelope is sized
-    for Phase 2, where the states really are that long; the width is a property
-    of a batch, not of the model.
+    **The filter is the problem's depth, not the row's distance to the solution.**
+    A depth-6 problem's last three states look like a depth-3 problem. They are
+    left out with the rest of that problem, so no part of a deeper problem's
+    BFS derivation reaches the network. Filtering on ``steps_remaining`` instead
+    would hand it the endgame of every deep problem and call the result weak.
+
+    The rows are copied out of the memmap (about 24 MB at depth <= 3), so the
+    view is cheap to index and the full set is not held open by it.
     """
-    filled = tokens.ne(PAD).nonzero()
-    # An all-PAD batch cannot occur (a state has at least a goal token), but a
-    # width of 0 would be silently catastrophic, so the floor is stated.
-    width = int(filled[:, 1].max()) + 1 if filled.numel() else 1
-    width = max(width, int(site_positions.max()) + 1)
-    return tokens[:, :width]
+
+    def __init__(self, data: SupervisionSet, max_depth: int) -> None:
+        depths = np.asarray(data.depth)
+        rows = np.flatnonzero(depths <= max_depth)
+        if rows.size == 0:
+            raise ValueError(
+                f"no supervision row comes from a problem of depth <= {max_depth}; "
+                f"the set's depths run {int(depths.min())}..{int(depths.max())}"
+            )
+        self.max_depth = int(max_depth)
+        self.tokens = np.asarray(data.tokens)[rows]
+        self.lengths = np.asarray(data.lengths)[rows]
+        self.action = np.asarray(data.action)[rows]
+        self.steps_remaining = np.asarray(data.steps_remaining)[rows]
+        self.depth = depths[rows]
+        self.goal = np.asarray(data.goal)[rows]
+        self.meta = data.meta
+        self.path = data.path
+
+    def __len__(self) -> int:
+        return int(self.lengths.shape[0])
 
 
-def make_batch(data: SupervisionSet, indices: list[int], cfg: Config) -> Batch:
+def make_batch(data: SupervisionSet | DepthLimited, indices: list[int], cfg: Config) -> Batch:
     """Encode a batch. Site positions and legality are derived, never stored.
 
     Storing them would cost ~660 MB for a 313K set at `max_sites=192`; deriving
@@ -213,7 +233,7 @@ def make_batch(data: SupervisionSet, indices: list[int], cfg: Config) -> Batch:
     if not tokens:
         raise ValueError("every row in the batch failed to encode")
     steps_tensor = torch.tensor(steps)
-    stacked = _crop_to_content(torch.stack(tokens), torch.stack(positions))
+    stacked = crop_to_content(torch.stack(tokens), torch.stack(positions))
     return Batch(
         tokens=stacked,
         site_positions=torch.stack(positions),
@@ -321,7 +341,7 @@ def ring_batch(ring, indices: list[int], cfg: Config, *, target: str | None = No
     if not tokens:
         return None
     steps_tensor = torch.tensor(steps)
-    stacked = _crop_to_content(torch.stack(tokens), torch.stack(positions))
+    stacked = crop_to_content(torch.stack(tokens), torch.stack(positions))
     batch = Batch(
         tokens=stacked,
         site_positions=torch.stack(positions),
@@ -575,7 +595,7 @@ def lr_at(step: int, total: int, cfg: Config) -> float:
 
 def train(
     model: Reckoner,
-    data: SupervisionSet,
+    data: SupervisionSet | DepthLimited,
     cfg: Config,
     *,
     steps: int,

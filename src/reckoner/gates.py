@@ -109,5 +109,11 @@ def descent_identity_holds(result: SearchResult) -> bool:
     that generalises, and the runner asserts it per iteration.
     """
     s = result.stats
-    terminals = s.terminal_solved + s.terminal_no_actions + s.state_too_large + s.step_cap_reached
+    terminals = (
+        s.terminal_solved
+        + s.terminal_no_actions
+        + s.state_too_large
+        + s.step_cap_reached
+        + s.past_par
+    )
     return s.nodes - s.evaluations == terminals
