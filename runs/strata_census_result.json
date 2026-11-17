@@ -1,0 +1,2498 @@
+{
+  "anchors_sha256_entries": 53,
+  "datasets": {
+    "eval_held_out": {
+      "both_sides_product_shape": {
+        "by_par": {},
+        "rows": 0
+      },
+      "by_par_and_goal": {
+        "1": {
+          "EVALUATE": 175,
+          "SIMPLIFY": 212
+        },
+        "2": {
+          "EVALUATE": 94,
+          "SIMPLIFY": 141,
+          "SOLVE": 48
+        },
+        "3": {
+          "EVALUATE": 136,
+          "SIMPLIFY": 19,
+          "SOLVE": 111
+        },
+        "4": {
+          "EVALUATE": 7,
+          "SIMPLIFY": 295,
+          "SOLVE": 277
+        },
+        "5": {
+          "EVALUATE": 287,
+          "SOLVE": 96
+        },
+        "6": {
+          "EVALUATE": 102
+        }
+      },
+      "rows": 2000,
+      "stored_order": {
+        "first_and_last_row": {
+          "par 1 EVALUATE": [
+            0,
+            281
+          ],
+          "par 1 SIMPLIFY": [
+            1,
+            665
+          ],
+          "par 2 EVALUATE": [
+            285,
+            663
+          ],
+          "par 2 SIMPLIFY": [
+            6,
+            1470
+          ],
+          "par 2 SOLVE": [
+            288,
+            654
+          ],
+          "par 3 EVALUATE": [
+            666,
+            1151
+          ],
+          "par 3 SIMPLIFY": [
+            692,
+            1582
+          ],
+          "par 3 SOLVE": [
+            668,
+            1552
+          ],
+          "par 4 EVALUATE": [
+            1200,
+            1969
+          ],
+          "par 4 SIMPLIFY": [
+            667,
+            1679
+          ],
+          "par 4 SOLVE": [
+            671,
+            1962
+          ],
+          "par 5 EVALUATE": [
+            1157,
+            1999
+          ],
+          "par 5 SOLVE": [
+            1682,
+            1998
+          ],
+          "par 6 EVALUATE": [
+            1681,
+            1997
+          ]
+        },
+        "last_1000_rows": {
+          "2": {
+            "SIMPLIFY": 3
+          },
+          "3": {
+            "EVALUATE": 43,
+            "SIMPLIFY": 13,
+            "SOLVE": 44
+          },
+          "4": {
+            "EVALUATE": 7,
+            "SIMPLIFY": 209,
+            "SOLVE": 196
+          },
+          "5": {
+            "EVALUATE": 287,
+            "SOLVE": 96
+          },
+          "6": {
+            "EVALUATE": 102
+          }
+        }
+      }
+    },
+    "train_100k": {
+      "both_sides_product_shape": {
+        "by_par": {},
+        "rows": 0
+      },
+      "by_par_and_goal": {
+        "1": {
+          "EVALUATE": 9669,
+          "SIMPLIFY": 10672,
+          "SOLVE": 410
+        },
+        "2": {
+          "EVALUATE": 5340,
+          "SIMPLIFY": 7401,
+          "SOLVE": 3841
+        },
+        "3": {
+          "EVALUATE": 6663,
+          "SIMPLIFY": 945,
+          "SOLVE": 6460
+        },
+        "4": {
+          "EVALUATE": 270,
+          "SIMPLIFY": 14518,
+          "SOLVE": 14248
+        },
+        "5": {
+          "EVALUATE": 12636,
+          "SOLVE": 3377
+        },
+        "6": {
+          "EVALUATE": 3550
+        }
+      },
+      "rows": 100000,
+      "stored_order": {
+        "first_and_last_row": {
+          "par 1 EVALUATE": [
+            0,
+            15512
+          ],
+          "par 1 SIMPLIFY": [
+            2,
+            37235
+          ],
+          "par 1 SOLVE": [
+            4,
+            9665
+          ],
+          "par 2 EVALUATE": [
+            15513,
+            37236
+          ],
+          "par 2 SIMPLIFY": [
+            51,
+            88594
+          ],
+          "par 2 SOLVE": [
+            15516,
+            37233
+          ],
+          "par 3 EVALUATE": [
+            37237,
+            96073
+          ],
+          "par 3 SIMPLIFY": [
+            37238,
+            88674
+          ],
+          "par 3 SOLVE": [
+            37239,
+            88651
+          ],
+          "par 4 EVALUATE": [
+            62879,
+            99968
+          ],
+          "par 4 SIMPLIFY": [
+            37242,
+            88671
+          ],
+          "par 4 SOLVE": [
+            37240,
+            99985
+          ],
+          "par 5 EVALUATE": [
+            62650,
+            99998
+          ],
+          "par 5 SOLVE": [
+            88677,
+            99997
+          ],
+          "par 6 EVALUATE": [
+            88679,
+            99999
+          ]
+        },
+        "last_1000_rows": {
+          "4": {
+            "EVALUATE": 9,
+            "SOLVE": 36
+          },
+          "5": {
+            "EVALUATE": 347,
+            "SOLVE": 294
+          },
+          "6": {
+            "EVALUATE": 314
+          }
+        }
+      }
+    }
+  },
+  "generator_plan": {
+    "candidates_per_depth": 26677,
+    "candidates_requested": 160064,
+    "depth_6_candidates_begin_at": 133385,
+    "order": "depth 1's candidates first, depth 6's last; the first train_set_size problems that survive labelling and de-duplication are kept",
+    "train_set_size": 100000
+  },
+  "git_sha": "7debb6c0e4e5803dd5224883be48010ae62c4526",
+  "suites": {
+    "scripted_in_10": {
+      "both_sides_product_shape": 200,
+      "by_par_and_goal": {
+        "10": {
+          "SOLVE": 200
+        }
+      },
+      "par_source": [
+        "scripted"
+      ],
+      "rows": 200
+    },
+    "scripted_in_7": {
+      "both_sides_product_shape": 200,
+      "by_par_and_goal": {
+        "7": {
+          "SOLVE": 200
+        }
+      },
+      "par_source": [
+        "scripted"
+      ],
+      "rows": 200
+    },
+    "scripted_in_8": {
+      "both_sides_product_shape": 200,
+      "by_par_and_goal": {
+        "8": {
+          "SOLVE": 200
+        }
+      },
+      "par_source": [
+        "scripted"
+      ],
+      "rows": 200
+    },
+    "scripted_in_9": {
+      "both_sides_product_shape": 200,
+      "by_par_and_goal": {
+        "9": {
+          "SOLVE": 200
+        }
+      },
+      "par_source": [
+        "scripted"
+      ],
+      "rows": 200
+    },
+    "solve_in_1": {
+      "both_sides_product_shape": 0,
+      "by_par_and_goal": {
+        "1": {
+          "EVALUATE": 84,
+          "SIMPLIFY": 76,
+          "SOLVE": 40
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    },
+    "solve_in_2": {
+      "both_sides_product_shape": 0,
+      "by_par_and_goal": {
+        "2": {
+          "EVALUATE": 64,
+          "SIMPLIFY": 74,
+          "SOLVE": 62
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    },
+    "solve_in_3": {
+      "both_sides_product_shape": 0,
+      "by_par_and_goal": {
+        "3": {
+          "EVALUATE": 94,
+          "SIMPLIFY": 4,
+          "SOLVE": 102
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    },
+    "solve_in_4": {
+      "both_sides_product_shape": 0,
+      "by_par_and_goal": {
+        "4": {
+          "EVALUATE": 1,
+          "SIMPLIFY": 98,
+          "SOLVE": 101
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    },
+    "solve_in_5": {
+      "both_sides_product_shape": 0,
+      "by_par_and_goal": {
+        "5": {
+          "EVALUATE": 109,
+          "SOLVE": 91
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    },
+    "solve_in_6": {
+      "both_sides_product_shape": 95,
+      "by_par_and_goal": {
+        "6": {
+          "EVALUATE": 105,
+          "SOLVE": 95
+        }
+      },
+      "par_source": [
+        "bfs"
+      ],
+      "rows": 200
+    }
+  },
+  "supervision": {
+    "phase1_eval": {
+      "problems": 2000,
+      "problems_by_depth_and_goal": {
+        "1": {
+          "EVALUATE": 175,
+          "SIMPLIFY": 212
+        },
+        "2": {
+          "EVALUATE": 94,
+          "SIMPLIFY": 141,
+          "SOLVE": 48
+        },
+        "3": {
+          "EVALUATE": 136,
+          "SIMPLIFY": 19,
+          "SOLVE": 111
+        },
+        "4": {
+          "EVALUATE": 7,
+          "SIMPLIFY": 295,
+          "SOLVE": 277
+        },
+        "5": {
+          "EVALUATE": 287,
+          "SOLVE": 96
+        },
+        "6": {
+          "EVALUATE": 102
+        }
+      },
+      "rows": 6570
+    },
+    "phase1_train": {
+      "problems": 100000,
+      "problems_by_depth_and_goal": {
+        "1": {
+          "EVALUATE": 9669,
+          "SIMPLIFY": 10672,
+          "SOLVE": 410
+        },
+        "2": {
+          "EVALUATE": 5340,
+          "SIMPLIFY": 7401,
+          "SOLVE": 3841
+        },
+        "3": {
+          "EVALUATE": 6663,
+          "SIMPLIFY": 945,
+          "SOLVE": 6460
+        },
+        "4": {
+          "EVALUATE": 270,
+          "SIMPLIFY": 14518,
+          "SOLVE": 14248
+        },
+        "5": {
+          "EVALUATE": 12636,
+          "SOLVE": 3377
+        },
+        "6": {
+          "EVALUATE": 3550
+        }
+      },
+      "rows": 311741
+    }
+  },
+  "weak_w1_at_par_by_stratum": {
+    "A-42": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            18,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            52,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            57,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            72,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            30,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            10,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            18,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            52,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            57,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            72,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            30,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            16,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      }
+    },
+    "A-43": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            30,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            51,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            70,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            73,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            13,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            2,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            30,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            51,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            70,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            73,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            17,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            10,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      }
+    },
+    "A-44": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            36,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            60,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            81,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            91,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            33,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            4,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            36,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            60,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            81,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            91,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            36,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            11,
+            105
+          ],
+          "SOLVE": [
+            0,
+            95
+          ]
+        }
+      }
+    },
+    "B-42": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            33,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            18,
+            105
+          ],
+          "SOLVE": [
+            1,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            36,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            19,
+            105
+          ],
+          "SOLVE": [
+            1,
+            95
+          ]
+        }
+      }
+    },
+    "B-43": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            101,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            34,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            22,
+            105
+          ],
+          "SOLVE": [
+            2,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            101,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            35,
+            109
+          ],
+          "SOLVE": [
+            0,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            23,
+            105
+          ],
+          "SOLVE": [
+            2,
+            95
+          ]
+        }
+      }
+    },
+    "B-44": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            28,
+            109
+          ],
+          "SOLVE": [
+            14,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            2,
+            105
+          ],
+          "SOLVE": [
+            14,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            32,
+            109
+          ],
+          "SOLVE": [
+            14,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            12,
+            105
+          ],
+          "SOLVE": [
+            14,
+            95
+          ]
+        }
+      }
+    },
+    "V-42": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            107,
+            109
+          ],
+          "SOLVE": [
+            87,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            96,
+            105
+          ],
+          "SOLVE": [
+            90,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            109,
+            109
+          ],
+          "SOLVE": [
+            91,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            105,
+            105
+          ],
+          "SOLVE": [
+            95,
+            95
+          ]
+        }
+      }
+    },
+    "V-43": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            108,
+            109
+          ],
+          "SOLVE": [
+            67,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            101,
+            105
+          ],
+          "SOLVE": [
+            72,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            109,
+            109
+          ],
+          "SOLVE": [
+            91,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            105,
+            105
+          ],
+          "SOLVE": [
+            95,
+            95
+          ]
+        }
+      }
+    },
+    "V-44": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            103,
+            109
+          ],
+          "SOLVE": [
+            86,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            86,
+            105
+          ],
+          "SOLVE": [
+            86,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            109,
+            109
+          ],
+          "SOLVE": [
+            91,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            105,
+            105
+          ],
+          "SOLVE": [
+            95,
+            95
+          ]
+        }
+      }
+    },
+    "reference (the Phase-1 anchor)": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            0,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            89,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            103,
+            109
+          ],
+          "SOLVE": [
+            91,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            105,
+            105
+          ],
+          "SOLVE": [
+            95,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            103,
+            109
+          ],
+          "SOLVE": [
+            91,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            105,
+            105
+          ],
+          "SOLVE": [
+            95,
+            95
+          ]
+        }
+      }
+    },
+    "start network, arm A's search": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            8,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            1,
+            109
+          ],
+          "SOLVE": [
+            5,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            0,
+            105
+          ],
+          "SOLVE": [
+            11,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            17,
+            109
+          ],
+          "SOLVE": [
+            5,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            9,
+            105
+          ],
+          "SOLVE": [
+            11,
+            95
+          ]
+        }
+      }
+    },
+    "start network, arm B's search": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            8,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            1,
+            109
+          ],
+          "SOLVE": [
+            5,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            0,
+            105
+          ],
+          "SOLVE": [
+            11,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            17,
+            109
+          ],
+          "SOLVE": [
+            5,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            9,
+            105
+          ],
+          "SOLVE": [
+            11,
+            95
+          ]
+        }
+      }
+    },
+    "start network, arm V's search": {
+      "model@1": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            70,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            0,
+            1
+          ],
+          "SIMPLIFY": [
+            8,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            1,
+            109
+          ],
+          "SOLVE": [
+            5,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            0,
+            105
+          ],
+          "SOLVE": [
+            11,
+            95
+          ]
+        }
+      },
+      "model@48": {
+        "1": {
+          "EVALUATE": [
+            84,
+            84
+          ],
+          "SIMPLIFY": [
+            76,
+            76
+          ],
+          "SOLVE": [
+            40,
+            40
+          ]
+        },
+        "2": {
+          "EVALUATE": [
+            64,
+            64
+          ],
+          "SIMPLIFY": [
+            74,
+            74
+          ],
+          "SOLVE": [
+            62,
+            62
+          ]
+        },
+        "3": {
+          "EVALUATE": [
+            94,
+            94
+          ],
+          "SIMPLIFY": [
+            4,
+            4
+          ],
+          "SOLVE": [
+            102,
+            102
+          ]
+        },
+        "4": {
+          "EVALUATE": [
+            1,
+            1
+          ],
+          "SIMPLIFY": [
+            98,
+            98
+          ],
+          "SOLVE": [
+            101,
+            101
+          ]
+        },
+        "5": {
+          "EVALUATE": [
+            109,
+            109
+          ],
+          "SOLVE": [
+            8,
+            91
+          ]
+        },
+        "6": {
+          "EVALUATE": [
+            9,
+            105
+          ],
+          "SOLVE": [
+            12,
+            95
+          ]
+        }
+      }
+    }
+  }
+}

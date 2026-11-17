@@ -664,3 +664,25 @@ def test_the_episode_loader_refuses_before_it_reads_anything() -> None:
     problems = training_problems(DATA / "train_100k", 4, seed=0)
     assert len(problems) == 4
     assert all(p.par_source == "bfs" and p.par >= 1 for p in problems)
+
+
+def test_the_strata_census_record_matches_the_frozen_suites() -> None:
+    """F-60, pinned where a clean clone can check it: ``solve_in_6`` holds 95
+    SOLVE problems, the census record says so, and it records none in the
+    training set. The suites are tracked; the training set's arrays are not, so
+    its side of the count is the record's."""
+    import json
+    from pathlib import Path
+
+    from reckoner.dataset import read_suite
+    from reckoner.vocab import GOAL_SOLVE
+
+    repo = Path(__file__).resolve().parents[1]
+    record = json.loads((repo / "runs" / "strata_census_result.json").read_text())
+    rows = read_suite(repo / "runs" / "suites" / "solve_in_6.jsonl")
+    solve = sum(row["goal"] == GOAL_SOLVE for row in rows)
+    assert solve == 95 == record["suites"]["solve_in_6"]["by_par_and_goal"]["6"]["SOLVE"]
+    assert record["suites"]["solve_in_6"]["both_sides_product_shape"] == 95
+    train = record["datasets"]["train_100k"]
+    assert "SOLVE" not in train["by_par_and_goal"]["6"]
+    assert train["both_sides_product_shape"]["rows"] == 0

@@ -4219,3 +4219,102 @@ problem's par.
   them.
 - A benchmark with headroom above depth 6, without which the next campaign
   cannot be read either.
+
+---
+
+## F-60 — The training set holds no problem from the depth-6 SOLVE template: the generator kept the first 100,000 of a plan ordered by depth
+
+**Measured:** 2026-11-17, `scripts/strata_census.py`,
+`runs/strata_census_result.json`. A census of the frozen data, exact over every
+row. No network is involved in the count.
+
+### The count
+
+| | par 5 SOLVE | par 6 SOLVE | par 6 EVALUATE | rows of the `solve_both_sides_product` shape |
+|---|---:|---:|---:|---:|
+| `train_100k` (100,000 problems) | 3,377 | **0** | 3,550 | **0**, at any depth |
+| `eval_held_out` (2,000) | 96 | **0** | 102 | 0 |
+| `solve_in_5` (200) | 91 | | | 0 |
+| `solve_in_6` (200) | | 95 | 105 | **95** |
+
+`phase1_train` and `phase1_eval` are built from the first two and have the same
+counts by depth and goal.
+
+The shape is the one `solve_both_sides_product` emits and no other v1 template
+does: x on both sides, and a product of two numerals still to evaluate. All 95
+SOLVE problems in `solve_in_6` have it. Such a problem is a depth-5 SOLVE
+problem with one evaluation to do first. BFS solves it as `eval_mul`, then the
+five steps `solve_both_sides` problems take.
+
+### The cause
+
+`scripts/generate.py`, as it has stood since chunk 5:
+
+- `_plan` lists its candidates depth by depth: depth 1's templates first, depth
+  6's last.
+- `main` asks for 1.6 times the wanted count (160,064 candidates, 26,677 per
+  depth), labels and de-duplicates them in plan order, and keeps `pool[:count]`.
+
+So the set is the first 100,000 survivors in plan order, and the depth-6 plan
+(the last 26,677 candidates, half of them `solve_both_sides_product`) lies
+wholly beyond the cut. The stored rows are in plan order and show it:
+
+| `(par, goal)` | first row | last row |
+|---|---:|---:|
+| par 1 EVALUATE | 0 | 15,512 |
+| par 4 SOLVE | 37,240 | 99,985 |
+| par 5 SOLVE | 88,677 | 99,997 |
+| par 6 EVALUATE | 88,679 | 99,999 |
+
+The final 1,000 rows are par 4 to 6 EVALUATE and par 4 to 5 SOLVE: the depth-5
+plan's three templates, still running when the count was reached. The 3,550
+depth-6 problems the set does hold all come from `eval_deepest` inside that
+depth-5 plan, which lands on depth 6 some of the time.
+
+The suites were built one depth at a time, each to its own quota of 200, so the
+cut never reached them.
+
+**A second defect in the same lines.** Each dataset's plan seed includes
+`hash(mode) % 1000`, and Python's string hash differs from process to process
+(five processes gave five values). The datasets are frozen by digest, so
+nothing measured depends on it, but `train_100k` cannot be regenerated from the
+seed its `meta.json` records.
+
+### What it changes in the record
+
+- **F-04 is half the story.** It read the thin depth 6 (3.6% of the set) as the
+  design working: depth is measured, so the histogram is an outcome. The other
+  half is this cut. F-04 stands as written and this is its correction.
+- **Every network this project has trained has never been shown that
+  template:** the Phase-1 anchor, M1's checkpoints, both sweeps, WEAK-w1's nine
+  runs. On `solve_in_6`, 95 of the 200 problems have measured extrapolation by
+  one step all along.
+- **It has not hurt a network with a supervised start.** Counted from the
+  per-problem records WEAK-w1 already holds (the split is made after the fact;
+  the rows are the registered ones), at par on those 95:
+
+  | | policy alone | with search |
+  |---|---:|---:|
+  | the Phase-1 anchor | 95 | 95 |
+  | WEAK-w1's starting network | 11 | 11 to 12 |
+  | arm A, three seeds | 0, 0, 0 | 0, 0, 0 |
+  | arm B | 1, 2, 14 | 1, 2, 14 |
+  | arm V | 90, 72, 86 | 95, 95, 95 |
+
+- **Par-5 SOLVE is thin for the same reason.** Its template first appears at
+  row 88,677, and the cut came 11,323 rows later.
+
+### What it does not show
+
+- That a network needs to practise the template. The anchor plays all 95 at par
+  without having seen one.
+- Anything about a network that starts from random weights. The exploration
+  that led here is in `WEAK-w1.md` and is not evidence.
+
+### Registered, not done
+
+- **The generator is not changed here.** Changing it alters no existing
+  dataset. A training set that holds the template is a new anchored artifact
+  and a lever of its own.
+- **`eval_held_out` has the same hole**, so `phase1_eval`'s agreement numbers
+  contain no depth-6 SOLVE state.
