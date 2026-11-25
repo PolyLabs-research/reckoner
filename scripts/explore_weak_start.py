@@ -110,31 +110,6 @@ ARMS = ("A", "B", "C", "D", "E", "F", "V")
 # --------------------------------------------------------------------- data
 
 
-class DepthSubset:
-    """The rows of a supervision set whose PROBLEM depth is at most ``max_depth``.
-
-    A view ``make_batch`` and ``train`` can read in place of the full set. The
-    filter is on the problem's depth, not the row's distance to the solution: a
-    depth-6 problem's last three states look like a depth-3 problem, and they are
-    left out with the rest of it, so the network has seen no part of a deeper
-    problem.
-    """
-
-    def __init__(self, data: SupervisionSet, max_depth: int) -> None:
-        rows = np.flatnonzero(np.asarray(data.depth) <= max_depth)
-        self.tokens = np.asarray(data.tokens)[rows]
-        self.lengths = np.asarray(data.lengths)[rows]
-        self.action = np.asarray(data.action)[rows]
-        self.steps_remaining = np.asarray(data.steps_remaining)[rows]
-        self.depth = np.asarray(data.depth)[rows]
-        self.goal = np.asarray(data.goal)[rows]
-        self.meta = data.meta
-        self.path = data.path
-
-    def __len__(self) -> int:
-        return int(self.lengths.shape[0])
-
-
 def suite_problems(depth: int, k: int) -> list[Problem]:
     rows = read_suite(SUITES / f"solve_in_{depth}.jsonl")
     return [suite_problem(rows[i]) for i in sample_indices(len(rows), min(k, len(rows)), 0)]
@@ -194,9 +169,15 @@ def cmd_train_anchor(args: argparse.Namespace) -> int:
     cfg = Config()
     validate(cfg)
     torch.set_num_threads(args.threads)
-    data = DepthSubset(SupervisionSet(anchored_data("phase1_train")), args.max_depth)
     torch.manual_seed(args.seed)
     model = Reckoner(cfg)
+    if args.steps == 0:
+        # No supervision at all: the network as initialised. The loop's hardest start.
+        model.eval()
+        save_checkpoint(args.out, model, cfg, 0, explore_max_depth=0)
+        print(f"  saved {args.out}: random initialisation, seed {args.seed}, no training")
+        return 0
+    data = SupervisionSet(anchored_data("phase1_train")).up_to_depth(args.max_depth)
     started = time.monotonic()
 
     def on_log(step: int, loss: float, lr: float) -> None:

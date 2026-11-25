@@ -1,0 +1,46 @@
+{
+  "checkpoint": "runs/phase1_d3/phase1.pt",
+  "checkpoint_sha256": "a5464d862838e66d6ce68e79d454e6bcd32cce78475226f69fcbeabd645a1e28",
+  "config_diff_from_default": {
+    "campaign.episodes_per_iteration": [
+      400,
+      200
+    ],
+    "campaign.intra_op_threads": [
+      8,
+      3
+    ],
+    "campaign.iterations": [
+      20,
+      10
+    ],
+    "ladder.ladder_every": [
+      5,
+      99
+    ],
+    "search.past_par": [
+      "evaluate",
+      "loss"
+    ],
+    "train.lr_warmup_steps": [
+      200,
+      100
+    ],
+    "train.rehearsal_frac": [
+      0.65,
+      0.0
+    ],
+    "train.replay_capacity": [
+      500000,
+      60000
+    ],
+    "train.train_steps_per_iter": [
+      400,
+      200
+    ]
+  },
+  "config_fingerprint": "5ed3a4d4ca512bd0ac2cfc46ab38708b399ecc36ecd5e19c6fa1c20b41e14f3f",
+  "git_sha": "ce6c2127a39da7d2a45243a73a9aff6984c2b935",
+  "rows": 2400,
+  "torch": "2.13.0+cpu"
+}

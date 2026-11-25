@@ -70,6 +70,12 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float, *, device:
     and in ``test_train``). Until F-58 this path padded, which is where self-play
     and every instrument pass spent most of their time.
 
+    **Under ``search.value_source = 'steps'`` each answer carries a third element,
+    the steps head's predicted steps-to-go (WEAK-w1).** The search converts it to a
+    value, because the conversion needs how far into its episode the state is and
+    only the search knows. The win/draw/loss value is still computed and still
+    scaled, and the search does not read it.
+
     ``device`` is where the forward pass runs; the model must already be there.
     The campaign passes nothing and runs on the CPU. No GPU is licensed as a
     measurement device (``pyproject.toml``, the ``cuda`` extra: "registered and
@@ -86,6 +92,9 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float, *, device:
     # it.
     assert_eval_mode(model, cfg)
     width = 7 * cfg.model.max_sites
+    with_steps = cfg.search.value_source == "steps"
+    if with_steps and model.steps_head is None:
+        raise ValueError("search.value_source is 'steps' and this model has no steps head")
 
     def evaluate(leaves):
         encoded, keep = [], []
@@ -95,18 +104,26 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float, *, device:
                 keep.append(i)
             except StateTooLarge:
                 continue
-        out = [(np.zeros(width, dtype=np.float32), 0.0) for _ in leaves]
+        # A state too large to encode gets no opinion: zero priors and value 0,
+        # as before. Under 'steps' it also needs a steps-to-go, and the honest one
+        # is the cap: the search already scores such a state as a loss.
+        blank = np.zeros(width, dtype=np.float32)
+        absent = (blank, 0.0, float(cfg.episode.step_cap)) if with_steps else (blank, 0.0)
+        out = [absent for _ in leaves]
         if not encoded:
             return out
         sites = torch.stack([e.site_positions for e in encoded])
         tokens = crop_to_content(torch.stack([e.tokens for e in encoded]), sites)
         with torch.no_grad():
-            policy, value_logits, _ = model(tokens.to(device), sites.to(device))
+            policy, value_logits, steps = model(tokens.to(device), sites.to(device))
             probs = torch.softmax(value_logits, dim=1)
             expected = (probs[:, 0] - probs[:, 2]).tolist()
             policy = policy.cpu()
+            to_go = steps.tolist() if with_steps else None
         for slot, i in enumerate(keep):
-            out[i] = (policy[slot].numpy().astype(np.float32), value_scale * float(expected[slot]))
+            prior = policy[slot].numpy().astype(np.float32)
+            value = value_scale * float(expected[slot])
+            out[i] = (prior, value, float(to_go[slot])) if to_go is not None else (prior, value)
         return out
 
     return evaluate

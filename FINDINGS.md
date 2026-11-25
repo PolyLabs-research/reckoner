@@ -4122,3 +4122,100 @@ passes). No GPU is licensed as a measurement device: `pyproject.toml` keeps the
 `cuda` extra "registered and deferred" and F-12's equivalence gate was for one
 box. The argument exists so an exploration can use a GPU without a second
 evaluator existing beside this one.
+
+---
+
+## F-59 — The search scored a certain loss as level and read no value at all; told both, the loop takes a shallow network to the supervised one's level
+
+**Measured:** 2026-11-16, `WEAK-w1.md` (registered and approved before any arm
+ran; one attempt, complete), `runs/w1/weak_w1_result.json`. Nine runs through
+`campaign.run` from a starting network supervised only on problems of depth
+≤ 3, read with the campaign's own no-regress instrument on the six exact-par
+suites (1,200 problems). All seven registered predictions hold.
+
+### The two things
+
+Both are properties of the merged search while the value head is silent, which
+it was for all of M1 and in all nine runs here (the switch fired in none).
+
+1. **A state at or past par, unsolved, was handed to the evaluator and came
+   back worth 0.** Its z is −1 whatever follows. A solution found past par is
+   worth −1 exactly, so past par the search ranked every unexplored line above
+   solving. Episodes that slipped over par then wandered to the cap, and the
+   ring trained on them.
+2. **Every unproven state was worth 0.** The search could tell a good move from
+   a bad one only by exhausting everything beneath the bad one, which 48
+   simulations manage about two plies from the end. Meanwhile the steps head,
+   trained since Phase 1 and never read by the search, predicts the distance to
+   a solution.
+
+Each is shown on a real search by a unit test written before the round:
+`test_past_par_the_merged_search_ranks_an_unexplored_line_above_a_solution` and
+`test_value_source_steps_refutes_a_bad_move_at_first_sight`.
+
+### Measured
+
+At par over the 1,200 suite problems; three seeds per arm.
+
+| | policy alone | with search |
+|---|---:|---:|
+| the starting network (never saw a problem deeper than 3) | 722 | 841 |
+| A — the loop as merged, ten iterations | 729, 730, 795 | 739, 746, 809 |
+| B — A + an unsolved state at or past par is a loss | 847, 852, 853 | 856, 859, 872 |
+| V — B + the search reads its value off the steps head | **1175, 1143, 1156** | **1200, 1200, 1200** |
+| the Phase-1 anchor (supervised on every depth) | 1176 | 1193 |
+
+- **A damages what the network knew.** On depths 1–3 it ends 27 to 77 problems
+  below the starting network, and its search does not get them back.
+- **B does not.** 0, 1 and 0 problems below. B − A over all 1,200: +0.083, CI
+  [+0.072, +0.094].
+- **V reaches the deep problems.** On depths 5–6 the policy alone is at par on
+  348 to 380 of 400, where B's is on 52 to 58. V − B there: +0.768, CI [+0.738,
+  +0.796].
+- **V with search is at par on every problem of every suite, in every seed.**
+  The supervised anchor with search misses 7.
+
+No BFS action label for a problem deeper than 3 reached any of these networks.
+What they were given is what every network here is given: each training
+problem's par.
+
+### What this changes in the record
+
+- **The loop works when its search has a value.** The spec's thesis (search
+  against a checker, improved-policy targets, no brute-force pretraining) is
+  shown at its smallest scale: from depth ≤ 3 to the whole depth ≤ 6 band in
+  2,000 self-play episodes.
+- **M1 ran with both defects.** Its value switch never fired, so its search
+  read 0 for every unproven state for twenty iterations. Its +108 on the
+  primary was achieved by a loop whose search could refute a move only by
+  exhaustion.
+- **The forgetting this project has chased has a third cause on the record.**
+  F-37 attributed it to training on the ring; F-56 showed it grows with steps
+  and learning rate under `'visits'`; here, under `'improved'` with no
+  rehearsal at all, it is present in arm A and absent in arm B, and the only
+  difference is how the search scores a state past par. F-56 and F-57 were
+  read under the merged search. Whether the past-par rule changes them is not
+  measured.
+- **REVIEW-2026-11-15's step 2 was not the lever.** The exploration that
+  preceded this round saw no effect from repairing the steps target or
+  switching the value loss off (WEAK-w1 §2, not evidence). The review ranked
+  them above the search. The measurement ranks them below it.
+
+### What it does not show
+
+- Anything from the Phase-1 anchor. These suites cannot show it: that anchor
+  already plays 1,176 of them at par.
+- Anything past depth 6, on other rule sets, or over more than ten iterations.
+- That either default should move. Both keys still default to the search M1
+  ran. Moving them is the principal's ruling, proposed on the page.
+
+### Registered, not done
+
+- The root itself is still evaluated when it is at or past par; only the
+  states the search creates below it are scored as losses.
+- The steps head still trains on rows from unsolved episodes.
+- The value's ceiling is +1 against any par that is not BFS-exact. Here that
+  was the league's fifth of episodes; on scripted strata it would be all of
+  them.
+- A benchmark with headroom above depth 6, without which the next campaign
+  cannot be read either.

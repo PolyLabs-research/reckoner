@@ -12,6 +12,7 @@ import random
 from dataclasses import replace
 from pathlib import Path
 
+import numpy as np
 import pytest
 import torch
 
@@ -100,6 +101,49 @@ def test_crop_never_cuts_below_a_site_position() -> None:
 # ---------------------------------------------------------------------------
 # Batch construction
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# The weak start's diet: whole problems of bounded depth, and nothing deeper
+# ---------------------------------------------------------------------------
+
+
+@needs_data
+def test_a_depth_limited_view_holds_every_shallow_problem_and_no_part_of_a_deep_one() -> None:
+    """Both polarities, counted against the dataset's own histogram.
+
+    The filter is on the PROBLEM's depth. A view filtered on distance-to-solution
+    would pass a naive "all rows are shallow" check and still contain the last
+    three states of every deep problem, so the row count is pinned to the
+    histogram the dataset recorded at birth.
+    """
+    data = SupervisionSet(DATA)
+    histogram = {int(k): int(v) for k, v in data.meta["depth_histogram"].items()}
+    weak = data.up_to_depth(3)
+
+    assert len(weak) == sum(n for depth, n in histogram.items() if depth <= 3)
+    assert 0 < len(weak) < len(data), "the filter must drop something and keep something"
+    assert int(weak.depth.max()) == 3
+    assert int(weak.steps_remaining.max()) <= 3
+
+    # The rows it keeps are the set's own rows, unaltered, in order.
+    rows = [i for i in range(2000) if int(data.depth[i]) <= 3][:50]
+    position = {int(i): k for k, i in enumerate(np.flatnonzero(np.asarray(data.depth) <= 3)[:2000])}
+    for i in rows:
+        k = position[i]
+        assert int(weak.action[k]) == int(data.action[i])
+        assert weak.tokens[k].tolist() == data.tokens[i].tolist()
+
+    # And it is a set make_batch reads like any other.
+    rng = random.Random(0)
+    batch = make_batch(weak, [rng.randrange(len(weak)) for _ in range(16)], CFG)
+    assert int(batch.depth.max()) <= 3
+
+
+@needs_data
+def test_a_depth_limit_below_every_problem_is_refused() -> None:
+    with pytest.raises(ValueError, match="no supervision row"):
+        SupervisionSet(DATA).up_to_depth(0)
 
 
 @needs_data

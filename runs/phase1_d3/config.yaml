@@ -1,0 +1,80 @@
+campaign:
+  device: cpu
+  episodes_per_iteration: 400
+  interop_threads: 32
+  intra_op_threads: 8
+  iterations: 20
+episode:
+  equiv_prime: 2147483647
+  simplify_equiv_k: 32
+  step_cap: 24
+generator:
+  max_bfs_depth: 6
+  suite_depths:
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  suite_problems_per_depth: 200
+  train_set_size: 100000
+ladder:
+  bootstrap_resamples: 10000
+  ladder_every: 5
+  problems_per_pass: 200
+league:
+  par_from_pool_frac: 0.2
+  pool_sample: uniform
+  pool_size: 8
+  seed_pool_with_anchor: true
+  snapshot_every: 1
+model:
+  d_ff: 1024
+  d_model: 256
+  d_policy: 128
+  dropout: 0.1
+  max_sites: 192
+  n_heads: 8
+  n_layers: 6
+  param_budget_max: 7000000
+  param_budget_min: 2000000
+  seq_len: 512
+  steps_aux_head: true
+  value_classes: 3
+numerics:
+  measure_dtype: fp32
+  train_dtype: bf16
+par:
+  bfs_exact_max_depth: 6
+  concede_enabled: false
+  concede_k: 2
+search:
+  batch_searches: 512
+  c_scale: 1.0
+  c_visit: 50.0
+  gumbel_m: 16
+  past_par: evaluate
+  perspective: single
+  root_noise: true
+  sims: 48
+  value_source: wdl
+seed: 42
+train:
+  batch_size: 128
+  grad_clip: 1.0
+  lr: 0.0002
+  lr_schedule: cosine
+  lr_warmup_steps: 200
+  nan_abort_frac: 0.01
+  nan_abort_min_steps: 20
+  policy_loss_weight: 1.0
+  policy_target: improved
+  rehearsal_frac: 0.65
+  replay_capacity: 500000
+  ring_holdout_frac: 0.1
+  steps_loss_weight: 1.0
+  train_steps_per_iter: 400
+  value_loss_weight: 1.0
+  value_q_mse_weight: 0.5
+  weight_decay: 0.0001

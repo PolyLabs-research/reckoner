@@ -21,6 +21,9 @@ the search before being asserted, is
 
     nodes - evaluations
         == terminal_solved + terminal_no_actions + state_too_large + step_cap_reached
+           + past_par
+
+(``past_par`` is zero unless ``search.past_par = 'loss'``, WEAK-w1.)
 
 Chunk 7's `evals == nodes` is exactly its zero-terminal special case, which is why
 the descent gate saw it: a branchy depth-5 SOLVE at 48 sims reaches no terminal.
@@ -110,6 +113,8 @@ class IterationStats:
     terminal_no_actions: int = 0
     state_too_large: int = 0
     step_cap_reached: int = 0
+    #: Unsolved states at or past par scored -1 unevaluated (``search.past_par``).
+    past_par: int = 0
     solved_by_depth: dict[int, int] = field(default_factory=dict)
     seen_by_depth: dict[int, int] = field(default_factory=dict)
     z_by_par_source: dict[str, dict[str, int]] = field(default_factory=dict)
@@ -139,6 +144,7 @@ class IterationStats:
             + self.terminal_no_actions
             + self.state_too_large
             + self.step_cap_reached
+            + self.past_par
         )
 
     def check_descent_identity(self) -> None:
@@ -154,7 +160,8 @@ class IterationStats:
                 f"{self.evaluations} = {self.nodes - self.evaluations}, but terminals "
                 f"= {self.terminals} (solved {self.terminal_solved}, no-actions "
                 f"{self.terminal_no_actions}, too-large {self.state_too_large}, cap "
-                f"{self.step_cap_reached}). Every node is evaluated exactly once "
+                f"{self.step_cap_reached}, past par {self.past_par}). Every node is "
+                "evaluated exactly once "
                 "unless it is terminal; a mismatch means one was neither."
             )
 
@@ -210,6 +217,7 @@ def _record(stats: IterationStats, result: SearchResult, live: _Live) -> None:
     stats.terminal_no_actions += s.terminal_no_actions
     stats.state_too_large += s.state_too_large
     stats.step_cap_reached += s.step_cap_reached
+    stats.past_par += s.past_par
 
     h_prior = entropy(result.root_priors)
     h_target = entropy(result.improved)

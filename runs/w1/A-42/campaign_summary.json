@@ -1,0 +1,137 @@
+{
+  "alarms": {},
+  "anchor_sha256": "a5464d862838e66d6ce68e79d454e6bcd32cce78475226f69fcbeabd645a1e28",
+  "arm": "A",
+  "checkpoint": "runs/phase1_d3/phase1.pt",
+  "checkpoint_sha256": "a5464d862838e66d6ce68e79d454e6bcd32cce78475226f69fcbeabd645a1e28",
+  "committed": 9,
+  "config_diff_from_default": {
+    "campaign.episodes_per_iteration": [
+      400,
+      200
+    ],
+    "campaign.intra_op_threads": [
+      8,
+      3
+    ],
+    "campaign.iterations": [
+      20,
+      10
+    ],
+    "ladder.ladder_every": [
+      5,
+      99
+    ],
+    "train.lr_warmup_steps": [
+      200,
+      100
+    ],
+    "train.rehearsal_frac": [
+      0.65,
+      0.0
+    ],
+    "train.replay_capacity": [
+      500000,
+      60000
+    ],
+    "train.train_steps_per_iter": [
+      400,
+      200
+    ]
+  },
+  "config_fingerprint": "0befa8a110837d83db9ddea589300c4ce4453da2e1d341f73c699d9a539ef81e",
+  "git_sha": "ce6c2127a39da7d2a45243a73a9aff6984c2b935",
+  "iterations": [
+    {
+      "iteration": 0,
+      "pool_par": 36,
+      "ring": 813,
+      "seconds": 601.0,
+      "solved": "194/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 1,
+      "pool_par": 48,
+      "ring": 1679,
+      "seconds": 559.7,
+      "solved": "191/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 2,
+      "pool_par": 37,
+      "ring": 2667,
+      "seconds": 596.0,
+      "solved": "184/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 3,
+      "pool_par": 39,
+      "ring": 3677,
+      "seconds": 544.4,
+      "solved": "183/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 4,
+      "pool_par": 32,
+      "ring": 4544,
+      "seconds": 495.2,
+      "solved": "186/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 5,
+      "pool_par": 37,
+      "ring": 5498,
+      "seconds": 570.2,
+      "solved": "185/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 6,
+      "pool_par": 33,
+      "ring": 6618,
+      "seconds": 603.7,
+      "solved": "179/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 7,
+      "pool_par": 39,
+      "ring": 7613,
+      "seconds": 618.4,
+      "solved": "183/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 8,
+      "pool_par": 41,
+      "ring": 8603,
+      "seconds": 575.3,
+      "solved": "183/200",
+      "switch": "abstained"
+    },
+    {
+      "iteration": 9,
+      "pool_par": 29,
+      "ring": 9672,
+      "seconds": 505.8,
+      "solved": "178/200",
+      "switch": "abstained"
+    }
+  ],
+  "run_name": "w1-A",
+  "seconds": 5670.2,
+  "seed": 42,
+  "started_unix": 1794825080.0934165,
+  "status": "complete",
+  "threads": {
+    "interop": 32,
+    "intra_op": 3,
+    "omp_family": "unset"
+  },
+  "torch": "2.13.0+cpu"
+}

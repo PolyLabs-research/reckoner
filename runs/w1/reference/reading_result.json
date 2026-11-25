@@ -1,0 +1,9 @@
+{
+  "checkpoint": "runs/phase1/phase1.pt",
+  "checkpoint_sha256": "45333caa8a066b0e8a1d3213aca48470d47dbcafaf3053b1bca4dfa54e6e269b",
+  "config_diff_from_default": {},
+  "config_fingerprint": "16c1776ead71822fa19a670eb25d1edfca2373e2e3927d3706a40d4f8d857185",
+  "git_sha": "ce6c2127a39da7d2a45243a73a9aff6984c2b935",
+  "rows": 2400,
+  "torch": "2.13.0+cpu"
+}
