@@ -79,6 +79,7 @@ MUST_REACH: list[str] = [
     # `pairedset.freeze` asserts its own trackedness before the bytes land.
     "runs/paired/smoke_v1.jsonl",  # runs/paired/*.jsonl — the frozen paired set
     "runs/testcount.json",  # written by the run itself, never typed (F-16)
+    "runs/review_20261115/loss_probe_result.json",  # a review's re-run probes (*_result.json)
     "runs/chunk11_part0_result.json",  # runs/chunk11_*.json — the headroom measurement
     "runs/chunk11_ceiling.json",  # the ceiling arithmetic derived from it
     "runs/paired_census.json",  # runs/paired_census*.json — the two-level censuses
@@ -141,6 +142,12 @@ MUST_REACH: list[str] = [
 # The counterpart polarity: things that must STAY ignored.
 MUST_IGNORE: list[str] = [
     "runs/m1/latest.pt",
+    # The exploration lane (AGENTS §7.1): unregistered outputs are never records,
+    # even when they carry a record's name. Each of these names is trackable
+    # everywhere else under runs/, which is what makes the rule worth pinning.
+    "runs/explore/weak3/meta.json",
+    "runs/explore/weak3/iterations.jsonl",
+    "runs/explore/weak3/headroom_result.json",
     "runs/m1/snapshots/iter0005.pt",
     f"{DATA_ROOT}/train_100k/states.npy",
     f"{DATA_ROOT}/train_100k/tokens.i32",  # 100K x max_len int32 — build output, not a record

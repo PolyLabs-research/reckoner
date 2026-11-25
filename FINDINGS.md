@@ -4062,3 +4062,63 @@ rehearsal to decide (`SWEEP-m1a4.md` §3.1).
 `f = 0.15` is not established; its seeds read 1192, 1190 and 1136. A
 `'visits'` run reproduced bit for bit across two CPU models (EPYC 9575F and
 4564P) on the same torch build.
+
+---
+
+## F-58 — Self-play paid for the 512-token envelope on every evaluation; the crop that removes it changes no bit
+
+**Found:** 2026-11-15, while sizing what an exploration (AGENTS §7.1) could
+afford. Fixed the same day.
+
+**The defect is F-07's, on the path F-07 did not reach.** `encode` pads every
+state to `model.seq_len` (512). F-07 found Phase 1 training paying for that
+envelope and added the crop to the two batch builders in `train.py`. The search
+evaluator (`evaluate.model_evaluator`) kept stacking the padded tokens, so every
+leaf of every search, in self-play and in every instrument pass, ran the trunk
+over 512 positions for states that are mostly under 64 tokens long.
+
+### Measured
+
+| reading | result |
+|---|---|
+| one forward pass, 128 states, 8 CPU threads: content width (57) / padded (512) | 284 ms / 5,743 ms, **20.2×** |
+| the same on the box's GPU | 61 ms / 619 ms, 10.1× |
+| the evaluator on 192 real search states (ring-V), 2 threads: cropped / padded | 0.52 s / 9.80 s, **18.8×** (`scripts/bench_evaluator_crop.py`, logged in `benchmarks/results.jsonl`) |
+| those 192 states: policy rows and values, cropped against padded | **192 / 192 bit-identical** |
+
+The first two rows were timed while the box was running other jobs, so they are
+indicative. The ratio, not the milliseconds, is the reading.
+
+### The fix, and its gates
+
+`crop_to_content` moved from `train.py` to `model.py` and the evaluator now uses
+it. Nothing else changed. The crop is exact for the reason its docstring gives:
+the trunk masks PAD, the pooling masks PAD, and positions are indexed from zero.
+
+| gate | result |
+|---|---|
+| `test_the_evaluator_crops_its_batch_and_changes_no_bit`: the crop fires (width < 512) and every policy row and value equals the full-width forward pass, bit for bit | passes |
+| **Ring-0 replay.** `scripts/ring0_replay.py` with the cropped evaluator, on 2 threads, against the ring written on 2026-11-11 by the padded evaluator on 8 threads | **byte-identical: ring digest `4ff19a7d…` both; 398 / 400 solved, 99 pool-par, 1,305 rows** |
+| replay wall clock | **61 s on 2 threads.** The 2026-11-11 replay on 8 threads was not timed by the script; the session that ran it waited about 35 minutes |
+
+So the change is invisible to every recorded number: the same episodes, the same
+ring, the same targets. The replay gate also shows, as one instance, that this
+ring does not depend on the intra-op thread count (2 against 8) on this build.
+
+### What it means for the record
+
+- **Every wall-clock number recorded before this commit is a number for the
+  padded evaluator.** M1's 9.6 hours, F-27's cost model, the cadence-unit times
+  and F-51's CPU reading all include it. None is re-measured here, and none is
+  edited.
+- The campaign's cost was mostly this. A campaign iteration that took minutes
+  of self-play should now take seconds; that is a prediction until a campaign
+  runs.
+
+### Also added, and not licensed for measurement
+
+`model_evaluator` takes `device` (default `"cpu"`, which is what the campaign
+passes). No GPU is licensed as a measurement device: `pyproject.toml` keeps the
+`cuda` extra "registered and deferred" and F-12's equivalence gate was for one
+box. The argument exists so an exploration can use a GPU without a second
+evaluator existing beside this one.

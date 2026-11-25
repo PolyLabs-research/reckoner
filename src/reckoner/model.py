@@ -120,6 +120,40 @@ def encode(problem: Problem, expr: Expr, cfg: Config) -> EncodedState:
     return EncodedState(tokens, len(seq), positions, len(offsets), mask)
 
 
+def crop_to_content(tokens: torch.Tensor, site_positions: torch.Tensor) -> torch.Tensor:
+    """Drop trailing all-PAD columns. **Exact, not approximate** — and measured.
+
+    ``encode`` pads every state to ``model.seq_len`` (512), sized in chunk 6 from
+    the *reachable*-state distribution, because Phase 2 self-play can grow states
+    past 295 tokens (F-05). Phase 1 supervision states are all on BFS-optimal
+    derivations, and optimal derivations never apply ``add_both_sides``
+    (ROUND-01), so the whole 313,628-example set has ``max_len 64``. Eight times
+    the width, and attention is O(L²).
+
+    Cropping changes nothing the network computes: the trunk already ignores PAD
+    via ``src_key_padding_mask``, ``_masked_mean`` pools over ``ne(PAD)``, and
+    positions are indexed from 0 by ``arange``, so rows 0..width-1 of the
+    position table are the same rows either way. That equality is pinned as an
+    exact tensor identity by ``test_cropping_padding_is_exact``, both polarities:
+    the crop must fire *and* the outputs must be bit-identical.
+
+    **Do not "fix" this by lowering ``model.seq_len``.** The envelope is sized
+    for Phase 2, where the states really are that long; the width is a property
+    of a batch, not of the model.
+
+    **Every forward pass goes through this, not only training's (F-58).** It
+    lived in ``train.py`` and was called by the two batch builders, so the search
+    evaluator kept padding every leaf to 512 tokens: about 20 times the CPU cost,
+    for outputs that are bit for bit the same.
+    """
+    filled = tokens.ne(PAD).nonzero()
+    # An all-PAD batch cannot occur (a state has at least a goal token), but a
+    # width of 0 would be silently catastrophic, so the floor is stated.
+    width = int(filled[:, 1].max()) + 1 if filled.numel() else 1
+    width = max(width, int(site_positions.max()) + 1)
+    return tokens[:, :width]
+
+
 def action_index(rule_id: int, site_id: int, max_sites: int) -> int:
     """``rule_id * max_sites + site_id``. Datasets store this; it does not move."""
     return rule_id * max_sites + site_id

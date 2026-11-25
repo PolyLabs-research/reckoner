@@ -130,6 +130,12 @@ runs/**
 !runs/**/check_env.txt
 !runs/**/anchor.json
 
+# The exploration lane (AGENTS.md §7.1). An unregistered run's outputs are never
+# records, so the whole directory is ignored — and it is ignored AFTER the
+# negations above, on purpose: an exploration's meta.json, iterations.jsonl or
+# *_result.json must not become a tracked record by sharing a name with one.
+runs/explore/**
+
 # Root-scoped: a bare `data/` would also swallow runs/data/ as a *directory*
 # ignore, and git cannot descend into an ignored directory to reach the
 # negations above.

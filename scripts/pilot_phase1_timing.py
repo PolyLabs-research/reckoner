@@ -119,7 +119,7 @@ def measure_the_crop(
 ) -> dict:
     """Price the padding crop, and prove it is free, in the same record.
 
-    The recommendation this pilot makes is conditional on ``_crop_to_content``,
+    The recommendation this pilot makes is conditional on ``crop_to_content``,
     so the speedup belongs in the artifact rather than in someone's memory —
     otherwise the next reader has a projection whose basis they cannot check.
     Both halves are measured: the crop must be *exact*, and it must be *worth it*.

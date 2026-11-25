@@ -23,7 +23,7 @@ from reckoner.arms import ArmError, ArmResult
 from reckoner.config import Config
 from reckoner.episode import Problem, verify
 from reckoner.logschema import CURRENCY_Z
-from reckoner.model import Reckoner, StateTooLarge, encode
+from reckoner.model import Reckoner, StateTooLarge, crop_to_content, encode
 from reckoner.rules import apply, legal_actions
 from reckoner.search import search
 
@@ -55,7 +55,7 @@ def assert_eval_mode(model: Reckoner, cfg: Config) -> None:
         )
 
 
-def model_evaluator(model: Reckoner, cfg: Config, value_scale: float):
+def model_evaluator(model: Reckoner, cfg: Config, value_scale: float, *, device: str = "cpu"):
     """The declaration applied: value contributes ``value_scale``, priors always.
 
     ``value_scale`` comes from :func:`reckoner.valuegate.value_contribution` and is
@@ -63,6 +63,17 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float):
     not earned (F-14's noise-as-signal closure). The policy prior is unaffected,
     and it trains toward π′ from the first iteration (F-54). While the head is
     silent, π′ moves the prior only where the search holds a proof.
+
+    **The batch is cropped to its content (F-58).** ``encode`` pads every state to
+    ``model.seq_len``; the forward pass does not need the padding and its outputs
+    are bit for bit the same without it (``crop_to_content``, pinned by test here
+    and in ``test_train``). Until F-58 this path padded, which is where self-play
+    and every instrument pass spent most of their time.
+
+    ``device`` is where the forward pass runs; the model must already be there.
+    The campaign passes nothing and runs on the CPU. No GPU is licensed as a
+    measurement device (``pyproject.toml``, the ``cuda`` extra: "registered and
+    deferred"), so anything else is for the exploration lane (AGENTS §7.1).
     """
     # F-22. THE MODE IS A PROPERTY OF THE EVALUATOR, so it is checked here rather
     # than trusted to a `.eval()` somewhere up the call chain. The campaign ran
@@ -87,13 +98,13 @@ def model_evaluator(model: Reckoner, cfg: Config, value_scale: float):
         out = [(np.zeros(width, dtype=np.float32), 0.0) for _ in leaves]
         if not encoded:
             return out
+        sites = torch.stack([e.site_positions for e in encoded])
+        tokens = crop_to_content(torch.stack([e.tokens for e in encoded]), sites)
         with torch.no_grad():
-            policy, value_logits, _ = model(
-                torch.stack([e.tokens for e in encoded]),
-                torch.stack([e.site_positions for e in encoded]),
-            )
+            policy, value_logits, _ = model(tokens.to(device), sites.to(device))
             probs = torch.softmax(value_logits, dim=1)
             expected = (probs[:, 0] - probs[:, 2]).tolist()
+            policy = policy.cpu()
         for slot, i in enumerate(keep):
             out[i] = (policy[slot].numpy().astype(np.float32), value_scale * float(expected[slot]))
         return out

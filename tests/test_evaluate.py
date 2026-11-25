@@ -124,6 +124,73 @@ def test_a_self_play_arm_keeps_the_profile_it_declares() -> None:
 # ------------------------------------------------- the evaluator's mode (F-22)
 
 
+@needs_suites
+def test_the_evaluator_crops_its_batch_and_changes_no_bit() -> None:
+    """F-58, both polarities: the crop fires, and it is free.
+
+    The evaluator padded every leaf to ``model.seq_len`` until F-58. Compared here
+    against that full-width forward pass, written out by hand: the policy rows
+    and the values must be bit for bit the same, and the batch must really have
+    been narrower than the envelope — otherwise the equality proves nothing.
+    """
+    from reckoner import evaluate
+    from reckoner.model import encode
+
+    model = a_model()
+    leaves = [
+        (p, p.expr)
+        for suite in ("solve_in_1", "solve_in_4", "solve_in_6")
+        for p in problems(suite, 6)
+    ]
+
+    widths: list[int] = []
+    real = evaluate.crop_to_content
+
+    def recording(tokens, sites):
+        cropped = real(tokens, sites)
+        widths.append(int(cropped.shape[1]))
+        return cropped
+
+    evaluate.crop_to_content = recording
+    try:
+        got = model_evaluator(model, CFG, 1.0)(leaves)
+    finally:
+        evaluate.crop_to_content = real
+    assert widths and max(widths) < CFG.model.seq_len, f"the crop did not fire: {widths}"
+
+    encoded = [encode(problem, expr, CFG) for problem, expr in leaves]
+    with torch.no_grad():
+        policy, value_logits, _ = model(
+            torch.stack([e.tokens for e in encoded]),
+            torch.stack([e.site_positions for e in encoded]),
+        )
+        probs = torch.softmax(value_logits, dim=1)
+        expected = (probs[:, 0] - probs[:, 2]).tolist()
+    assert len(got) == len(leaves)
+    for slot, (prior, value) in enumerate(got):
+        assert torch.equal(torch.from_numpy(prior), policy[slot]), f"policy row {slot} moved"
+        assert value == float(expected[slot]), f"value {slot} moved"
+
+
+def test_the_evaluator_runs_where_it_is_told_and_defaults_to_the_cpu() -> None:
+    """The campaign passes no device and gets the CPU; a wrong device fails loudly
+    rather than running somewhere nobody declared."""
+    model = a_model()
+    assert next(model.parameters()).device.type == "cpu"
+    leaves = (
+        [(p, p.expr) for p in problems("solve_in_1", 2)]
+        if (SUITES / "solve_in_1.jsonl").exists()
+        else []
+    )
+    if leaves:
+        default = model_evaluator(model, CFG, 0.0)(leaves)
+        named = model_evaluator(model, CFG, 0.0, device="cpu")(leaves)
+        for (a, _), (b, _) in zip(default, named, strict=True):
+            assert torch.equal(torch.from_numpy(a), torch.from_numpy(b))
+        with pytest.raises((RuntimeError, AssertionError)):
+            model_evaluator(model, CFG, 0.0, device="not-a-device")(leaves)
+
+
 def test_the_evaluator_refuses_a_model_in_train_mode() -> None:
     """F-22, first polarity. **The mode is a property of the evaluator**, so it
     is checked where the evaluator is built rather than trusted to an
